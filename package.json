@@ -1,0 +1,22 @@
+{
+  "name": "promap",
+  "version": "0.0.0",
+  "description": "Projection Mapping Software",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gdauster/promap.git"
+  },
+  "keywords": [
+    "projection",
+    "mapping"
+  ],
+  "author": "Guillaume Dauster",
+  "license": "BSD",
+  "bugs": {
+    "url": "https://github.com/gdauster/promap/issues"
+  }
+}
