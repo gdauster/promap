@@ -26,4 +26,4 @@ application.get('/js/main.js', function (req, res) {
   res.sendFile(path.join(__dirname + '/lib/main.js'));
 });
 
-server.listen(8082, '127.0.0.1');
+server.listen(8082, '192.168.1.10');
