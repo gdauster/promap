@@ -1,3 +1,12 @@
+class Deformation {
+  constructor() {
+    // ATTRIBUTES
+    this.geometry = new THREE.PlaneGeometry(10, 5);
+    this.material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    this.material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  }
+}
+
 class ProMap {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
