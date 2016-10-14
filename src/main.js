@@ -21,8 +21,41 @@ class Deformation {
           new THREE.MeshBasicMaterial({ color: 0x0000ff }));
     this.pivotXaxis.rotateOnAxis(new THREE.Vector3(1, 0, 0), this.DtoR * 90);
 this.pivotZaxis.rotateOnAxis(new THREE.Vector3(0, 1, 0), this.DtoR * 90);
-    this.pivot.add(this.window, this.pivotXaxis, this.pivotYaxis, this.pivotZaxis);
-    this.main.add(this.pivot);
+    //this.pivot.add(this.window, this.pivotXaxis, this.pivotYaxis, this.pivotZaxis);
+    //this.main.add(this.pivot);
+
+    const geom = new THREE.Geometry();
+    geom.vertices = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0)];
+    this.test = new THREE.Line(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: 0x0000ff })
+    );
+    this.main.add(this.grid(5, 6));
+  }
+  grid(width, height) {
+    const xgeom = new THREE.Geometry();
+    xgeom.vertices = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0)];
+    const zgeom = new THREE.Geometry();
+    zgeom.vertices = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)];
+    const mesh = new THREE.Object3D();
+    const material = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+    for (var i = 0; i <= width; i++) {
+      const obj = new THREE.Line(xgeom, material);
+      obj.scale.set(height, 1, 1);
+      obj.position.set(0, 0.1, i);
+      mesh.add(obj);
+    }
+    for (var i = 0; i <= height; i++) {
+      const obj = new THREE.Line(zgeom, material);
+      obj.scale.set(1, 1, width);
+      obj.position.set(i, 0.1, 0);
+      mesh.add(obj);
+    }
+    const vm = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1), new THREE.MeshBasicMaterial({ color: 0xdddddd }));
+    vm.geometry.translate(0.5, 0, 0.5);
+    vm.scale.set(height, 1, width);
+    mesh.add(vm)
+    return mesh;
   }
   movePivot(position) {
     this.pivot.position.copy(position);
@@ -45,7 +78,7 @@ class ProMap {
       alpha: false,
       preserveDrawingBuffer: true,
     });
-    this.axisHelper = new THREE.AxisHelper(15);
+    this.axisHelper = new THREE.AxisHelper(1);
     this.deformation = new Deformation();
 
     // Initialise 3D elements

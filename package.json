@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node index.js",
+    "debug": "DEBUG=* node index.js",
     "mocha": "mocha --compilers js:babel-register",
     "build.babel": "./node_modules/.bin/babel src -d lib"
   },

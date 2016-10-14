@@ -1,29 +1,30 @@
-/**
- * Very lite server system
- */
-
-var express = require('express');
-var socketio = require('socket.io');
 var path = require('path');
 var fs = require('fs');
 
 require('babel-register');
+console.log('compile server');
+var Server = require('./server').Server;
+console.log('server compiled');
 
-var application = express();
-var server = require('http').createServer(application);
+var server = new Server(8082, '192.168.1.10');
 
-var io = socketio.listen(server);
-io.on('connection', function (socket) {
-  console.log('connection establish');
-});
+server.use(__dirname + '/public/');
 
-application.use(express.static(__dirname + '/public/'));
-application.get('/', function (req, res) {
+server.get('/', function (req, res) {
   res.sendFile(path.join(__dirname + '/public/index.html'));
 });
-
-application.get('/js/main.js', function (req, res) {
-  res.sendFile(path.join(__dirname + '/lib/main.js'));
+server.get('/edit', function (req, res) {
+  res.sendFile(path.join(__dirname + '/public/edit.html'));
 });
 
-server.listen(8082, '192.168.1.10');
+server.get('/js/main.js', function (req, res) {
+  res.sendFile(path.join(__dirname + '/lib/main.js'));
+});
+server.get('/js/edit.js', function (req, res) {
+  res.sendFile(path.join(__dirname + '/lib/edit.js'));
+});
+
+server.serve(function () {
+  console.log('todo');
+});
+console.log('start listening');
