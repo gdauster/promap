@@ -2,15 +2,19 @@ class Deformation {
   constructor() {
     // ATTRIBUTES
     this.DtoR = Math.PI / 180.0;
-    this.geometry = new THREE.PlaneGeometry(5, 4);
-    this.material = new THREE.MeshBasicMaterial({ color: 0xaaaaaa });
+    this.geometry = new THREE.PlaneGeometry(8, 4);
+    this.dynamicTexture  = new THREEx.DynamicTexture(2048, 1024)
+    this.material = new THREE.MeshBasicMaterial({
+      map : this.dynamicTexture.texture,
+    });
+    this.dynamicTexture.texture.needsUpdate  = true;
     this.material2 = new THREE.MeshBasicMaterial({ color: 0x00ffff });
     this.main = new THREE.Object3D();
     this.window = new THREE.Mesh(this.geometry, this.material);
     this.pivot = new THREE.Object3D();
     this.rotation = new THREE.CircleGeometry(0.5, 16);
     this.rotation.vertices.shift();
-    this.pivotXaxis = new THREE.Line(
+  /*  this.pivotXaxis = new THREE.Line(
       this.rotation,
       new THREE.MeshBasicMaterial({ color: 0xff0000 }));
       this.pivotYaxis = new THREE.Line(
@@ -21,8 +25,10 @@ class Deformation {
           new THREE.MeshBasicMaterial({ color: 0x0000ff }));
     this.pivotXaxis.rotateOnAxis(new THREE.Vector3(1, 0, 0), this.DtoR * 90);
 this.pivotZaxis.rotateOnAxis(new THREE.Vector3(0, 1, 0), this.DtoR * 90);
-    //this.pivot.add(this.window, this.pivotXaxis, this.pivotYaxis, this.pivotZaxis);
-    //this.main.add(this.pivot);
+    this.pivot.add(this.window, this.pivotXaxis, this.pivotYaxis, this.pivotZaxis);*/
+    this.main.add(this.window);
+    this.downloadingImage = new Image();
+    this.draw();
 
     const geom = new THREE.Geometry();
     geom.vertices = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0)];
@@ -30,32 +36,28 @@ this.pivotZaxis.rotateOnAxis(new THREE.Vector3(0, 1, 0), this.DtoR * 90);
       new THREE.PlaneGeometry(1, 1),
       new THREE.MeshBasicMaterial({ color: 0x0000ff })
     );
-    this.main.add(this.grid(5, 6));
   }
-  grid(width, height) {
-    const xgeom = new THREE.Geometry();
-    xgeom.vertices = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0)];
-    const zgeom = new THREE.Geometry();
-    zgeom.vertices = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)];
-    const mesh = new THREE.Object3D();
-    const material = new THREE.MeshBasicMaterial({ color: 0x0000ff });
-    for (var i = 0; i <= width; i++) {
-      const obj = new THREE.Line(xgeom, material);
-      obj.scale.set(height, 1, 1);
-      obj.position.set(0, 0.1, i);
-      mesh.add(obj);
+  draw() {
+    const ctx = this.dynamicTexture.context;
+    const di = this.downloadingImage;
+    const scope = this;
+    di.addEventListener('load', (event) => {
+      ctx.drawImage(di, 0, 0);
+      di.style.display = 'none';
+      scope.dynamicTexture.texture.needsUpdate = true;
+    });
+    di.src = 'img/tesla.jpg';
+  }
+  invert(ctx, di, dt) {
+    const imgdata = ctx.getImageData(0, 0, di.width, di.height);
+    const data = imgdata.data;
+    for (var i = 0; i < data.length; i += 4) {
+      data[i]     = 255 - data[i];     // red
+      data[i + 1] = 255 - data[i + 1]; // green
+      data[i + 2] = 255 - data[i + 2]; // blue
     }
-    for (var i = 0; i <= height; i++) {
-      const obj = new THREE.Line(zgeom, material);
-      obj.scale.set(1, 1, width);
-      obj.position.set(i, 0.1, 0);
-      mesh.add(obj);
-    }
-    const vm = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1), new THREE.MeshBasicMaterial({ color: 0xdddddd }));
-    vm.geometry.translate(0.5, 0, 0.5);
-    vm.scale.set(height, 1, width);
-    mesh.add(vm)
-    return mesh;
+    ctx.putImageData(imgdata, 0, 0);
+    dt.texture.needsUpdate = true;
   }
   movePivot(position) {
     this.pivot.position.copy(position);
@@ -82,7 +84,7 @@ class ProMap {
     this.deformation = new Deformation();
 
     // Initialise 3D elements
-    this.camera.position.z = 5;
+    this.camera.position.z = 3;
     this.camera.lookAt(new THREE.Vector3(0, 0, 0));
 
     this.controls.rotateSpeed = 2.0;
@@ -90,6 +92,7 @@ class ProMap {
     this.controls.panSpeed = 0.8;
     this.controls.noZoom = false;
     this.controls.noPan = false;
+    //this.controls.enabled = false;
     this.controls.staticMoving = false;
     this.controls.dynamicDampingFactor = 0.9;
     this.controls.keys = [ 65, 83, 68 ];

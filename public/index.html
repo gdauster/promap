@@ -11,15 +11,18 @@
 		<link rel="stylesheet" href="css/main.css">
 		<script src="js/three.min.js"></script>
 		<script src="js/TrackballControls.js"></script>
+		<script src="js/threex.dynamictexture.js"></script>
 		<script src="js/main.js"></script>
 	</head>
 	<body>
 		<!--[if lt IE 8]>
 		<p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
 		<![endif]-->
+		<input id="invertbtn" value="invert" type="button">
 		<div id="promap">
 
 		</div>
+
 		<script type="text/javascript">
 			app = new ProMap('promap');
 
@@ -27,6 +30,10 @@
         requestAnimationFrame(animation);
         app.render()
       }
+			var invertbtn = document.getElementById('invertbtn');
+			invertbtn.addEventListener('click', function () {
+				app.deformation.invert(app.deformation.dynamicTexture.context, app.deformation.downloadingImage, app.deformation.dynamicTexture);
+			});
       animation();
 		</script>
 	</body>
