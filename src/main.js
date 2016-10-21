@@ -44,17 +44,40 @@ this.pivotZaxis.rotateOnAxis(new THREE.Vector3(0, 1, 0), this.DtoR * 90);
     di.addEventListener('load', (event) => {
       ctx.drawImage(di, 0, 0);
       di.style.display = 'none';
+      /*
+      const buf = new ArrayBuffer(imgdata.data.length);
+      const buf8 = new Uint8ClampedArray(buf);
+      const data = new Uint32Array(buf);
+      for (var i = 0; i < data.length; i += 1) {
+        data[i]     = (255   << 24) |        // alpha
+                      (255 - d[i+0] << 16) | // blue
+                      (255 - d[i+1] <<  8) | // green
+                       255 - d[i+2];         // red
+      scope.databytes =*/
       scope.dynamicTexture.texture.needsUpdate = true;
     });
     di.src = 'img/tesla.jpg';
   }
-  invert(ctx, di, dt) {
-    const imgdata = ctx.getImageData(0, 0, di.width, di.height);
+  invert(ctx, di, dt, imgdata) {
     const data = imgdata.data;
     for (var i = 0; i < data.length; i += 4) {
       data[i]     = 255 - data[i];     // red
       data[i + 1] = 255 - data[i + 1]; // green
       data[i + 2] = 255 - data[i + 2]; // blue
+      data[i + 3] = 255;               // alpha
+    }
+    ctx.putImageData(imgdata, 0, 0);
+    dt.texture.needsUpdate = true;
+  }
+  invert2(ctx, di, dt, imgdata) {
+    const data = new Uint32Array(imgdata.data.buffer);
+    for (var i = 0; i < data.length; i += 1) {
+      data[i] = (0xFF000000 & data[i]) | (0x00FFFFFF & (~ data[i]));
+      /*
+      data[i]     = (255   << 24) |        // alpha
+                    (255 - d[i+2] << 16) | // blue
+                    (255 - d[i+1] <<  8) | // green
+                     255 - d[i+0];         // red*/
     }
     ctx.putImageData(imgdata, 0, 0);
     dt.texture.needsUpdate = true;
@@ -139,6 +162,19 @@ class ProMap {
 
       }
     }
+  }
+  invert() {
+    const ctx = this.deformation.dynamicTexture.context;
+    const di = this.deformation.downloadingImage;
+    const dt =  app.deformation.dynamicTexture;
+    const imgdata = ctx.getImageData(0, 0, di.width, di.height);
+    const d = imgdata.data;
+
+    console.time('invertion');
+    for (var i = 0; i < 1; i++) {
+      app.deformation.invert(ctx, di, dt, imgdata, d);
+    }
+    console.timeEnd('invertion');
   }
   render() {
     this.controls.update();
