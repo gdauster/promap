@@ -13,6 +13,11 @@
 		<script src="js/TrackballControls.js"></script>
 		<script src="js/threex.dynamictexture.js"></script>
 		<script src="js/main.js"></script>
+		<style media="screen">
+			#media-video {
+				display: none;
+			}
+		</style>
 	</head>
 	<body>
 		<!--[if lt IE 8]>
@@ -20,21 +25,74 @@
 		<![endif]-->
 		<input id="invertbtn" value="invert" type="button">
 		<div id="promap">
+			<video id='media-video'>
+          <source src='img/sea.mp4' type='video/mp4'>
+       </video>
+			 <div class="controls">
+			 	<button type="button" id="button-video" name="button-controls">Play/Pause</button>
+			 </div>
+			 <canvas id="canvas-video" width="300" height="300"></canvas>
+			 <div id="tester">
 
+			 </div>
 		</div>
 
 		<script type="text/javascript">
-			app = new ProMap('promap');
+		var mediaPlayer = document.getElementById('media-video');
+		var canvas = document.getElementById('canvas-video');
+		var button = document.getElementById('button-video');
+		button.addEventListener('click', function() {
+			mediaPlayer.play();
+		}, false);
+		var ctx = canvas.getContext('2d');
+		mediaPlayer.addEventListener('play', function() {
+			//draw(this, ctx, 300, 300);
+		}, false);
+		function draw(vid, ctx, w, h) {
+			(function loop() {
+
+			})();
+		}
+
+			//app = new ProMap('promap');
 
 			function animation() {
         requestAnimationFrame(animation);
-        app.render()
+				if (!mediaPlayer.paused && !mediaPlayer.ended) {
+					ctx.drawImage(mediaPlayer, 0, 0, 300, 300);
+		    	const imgdata = ctx.getImageData(0, 0, 300, 300);
+					const data = new Uint32Array(imgdata.data.buffer);
+					for (var i = 0; i < data.length; i += 1) {
+						//data[i] = (0xFF000000 & data[i]) | (0x00FFFFFF & (~ data[i]));
+						data[i] = ((dataMask[i]) << 24) | (0x00FFFFFF & (~ data[i]));
+					}
+					ctx.putImageData(imgdata, 0, 0);
+				}
+        //app.render()
       }
-			var invertbtn = document.getElementById('invertbtn');
+			/*var invertbtn = document.getElementById('invertbtn');
 			invertbtn.addEventListener('click', function () {
 				app.invert();
-			});
-      animation();
+			});*/
+			var mask = document.createElement('img');
+			mask.src = 'img/snake.jpg';
+			var dataMask = null;
+			mask.onload = function() {
+				var canvasMask = document.createElement('canvas');
+				canvasMask.width = 300;
+				canvasMask.height = 300;
+				var tester = document.getElementById('tester');
+				tester.appendChild(canvasMask);
+				var ctxMask = canvasMask.getContext('2d');
+				ctxMask.drawImage(mask, 0, 0, 300, 300);
+				var imgdataMask = ctxMask.getImageData(0, 0, 300, 300);
+				dataMaskBuffer = new Uint32Array(imgdataMask.data.buffer);
+				dataMask = new Uint8Array(300 * 300);
+				for (var i = 0; i < dataMaskBuffer.length; i += 1) {
+					dataMask[i] = dataMaskBuffer[i] >> 8;
+				}
+      	animation();
+			}
 		</script>
 	</body>
 </html>
