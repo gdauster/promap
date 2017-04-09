@@ -4,8 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const babel = require('babel-core');
 
-const base = '/../mapping/',
-      index = base + 'view/index.html';
 
 class Server {
   constructor(port, ip) {
@@ -40,20 +38,43 @@ class Server {
   }
 }
 
+const base = '/../mapping/',
+      index = base + 'view/index.html',
+      editor = base + 'view/editor.html',
+      projection = base + 'view/projection.html';
+
 // Create server instance, with specific port, ip
 const configFile = fs.readFileSync(__dirname + '/../config.json', 'binary'),
       config = JSON.parse(configFile),
       server = new Server(config.port, config.ipaddr),
-      files = [
-        'utils', 'VisualModel', 'VisualModelUI', 'bbox',
-      ],
-      argv = process.argv.slice(2);
+      api = {
+        editor: server.compile(['Client', '../mapping/api/editor'], true),
+        projection: server.compile(['Client', '../mapping/api/projection'], true),
+      };
 
 server.addStatic(__dirname + '/../mapping/public/');
 
 // URLs to handle
 server.handleURL('/', (req, res) => {
     res.sendFile(path.join(__dirname + index));
+});
+
+server.handleURL('/editor', (req, res) => {
+    res.sendFile(path.join(__dirname + editor));
+});
+
+server.handleURL('/projection', (req, res) => {
+    res.sendFile(path.join(__dirname + projection));
+});
+
+server.handleURL('/js/editor.js', (req, res) => {
+  console.log('editor');
+    res.send(api.editor);
+});
+
+server.handleURL('/js/projection.js', (req, res) => {
+  console.log('projection');
+    res.sendFile(api.projection);
 });
 
 // register events, start listening
