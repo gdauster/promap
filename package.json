@@ -1,13 +1,24 @@
 {
-  "name": "mapping",
-  "version": "1.0.0",
-  "description": "Projection Mapping",
+  "name": "promap",
+  "version": "0.0.0",
+  "description": "Projection Mapping Software",
   "main": "index.js",
   "scripts": {
     "server": "node index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gdauster/promap.git"
+  },
+  "keywords": [
+    "projection",
+    "mapping"
+  ],
   "author": "Guillaume Dauster",
-  "license": "ISC",
+  "license": "BSD",
+  "bugs": {
+    "url": "https://github.com/gdauster/promap/issues"
+  },
   "dependencies": {
     "babel-core": "^6.24.1",
     "babel-preset-es2015": "^6.24.1",
