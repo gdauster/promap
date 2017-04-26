@@ -6,4 +6,9 @@ class Projection extends Client {
   }
 }
 
-new Projection();
+const _p = new Projection();
+
+window.addEventListener("click", () => {
+  _p.socket.emit('editor.status', 'coucou');
+  console.log('proj');
+}, false);

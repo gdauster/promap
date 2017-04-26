@@ -48,7 +48,7 @@ const configFile = fs.readFileSync(__dirname + '/../config.json', 'binary'),
       config = JSON.parse(configFile),
       server = new Server(config.port, config.ipaddr),
       api = {
-        editor: server.compile(['Client', '../mapping/api/editor'], true),
+        editor: server.compile(['Client', 'variable', '../mapping/api/editor'], true),
         projection: server.compile(['Client', '../mapping/api/projection'], true),
       };
 
@@ -69,20 +69,23 @@ server.handleURL('/projection', (req, res) => {
 
 server.handleURL('/js/editor.js', (req, res) => {
   console.log('editor');
-    res.send(api.editor);
+  api.editor = server.compile(['Client', 'variable', '../mapping/api/editor'], true);
+  res.send(api.editor);
 });
 
 server.handleURL('/js/projection.js', (req, res) => {
   console.log('projection');
-    res.sendFile(api.projection);
+  res.send(api.projection);
 });
 
 // register events, start listening
 server.serve((socket) => {
-    socket.on('ask.model', () => {
-    });
 
-    socket.emit('server.ok');
+  socket.on('editor.status', (info) => {
+    console.log(info);
+  });
+
+  socket.emit('server.ok');
 });
 
 console.log('server ready');
