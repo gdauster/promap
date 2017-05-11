@@ -21,7 +21,7 @@ camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 1000);
 
 scene = new THREE.Scene();
 
-renderer = new THREE.WebGLRenderer( { antialias: true } );
+renderer = new THREE.WebGLRenderer( { antialias: true, preserveDrawingBuffer: true } );
 renderer.setClearColor( 0xf0f0f0 );
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( width, height );

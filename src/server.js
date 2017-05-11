@@ -13,6 +13,7 @@ class Server {
     this.ip = ip;
     this.io = socketio.listen(this.server);
     this.sockets = [];
+    this.socketsByURL = {};
   }
   addStatic(folder) {
     this.app.use(express.static(folder));
@@ -75,6 +76,7 @@ server.handleURL('/js/editor.js', (req, res) => {
 
 server.handleURL('/js/projection.js', (req, res) => {
   console.log('projection');
+  api.projection = server.compile(['Client', '../mapping/api/projection'], true);
   res.send(api.projection);
 });
 
@@ -84,6 +86,13 @@ server.serve((socket) => {
   socket.on('editor.status', (info) => {
     console.log(info);
   });
+
+  socket.on('editor.send_rendered', (dataURL) => {
+    console.log('send rendered');
+    for (var i = 0; i < server.sockets.length; i++) {
+      server.sockets[i].emit('projection.receive_rendered', dataURL);
+    }
+  })
 
   socket.emit('server.ok');
 });

@@ -6,6 +6,23 @@ class Editor extends Client {
     super();
     this.type = 'editor';
 
+
+        this.axisHelper = new THREE.AxisHelper( 5 );
+        scene.add( this.axisHelper );
+
+    this.menu = document.createElement('button');
+    this.menu.setAttribute('type', 'button');
+    this.menu.innerHTML = 'Envoyer';
+    this.menu.style.position = 'absolute';
+    this.menu.style.top = 0;
+    document.body.appendChild(this.menu);
+    this.menu.addEventListener('click', () => {
+      scene.remove(this.axisHelper);
+        renderer.render( scene, camera );
+        this.socket.emit('editor.send_rendered', renderer.domElement.toDataURL());
+          scene.add(this.axisHelper);
+    });
+
     // Cube
     camera.position.x = 0;
     camera.position.y = 0;
@@ -17,9 +34,6 @@ class Editor extends Client {
 
     this.plane = new THREE.Mesh( geometry, material );
     scene.add( this.plane );
-
-    var axisHelper = new THREE.AxisHelper( 5 );
-    scene.add( axisHelper );
 
     var loader = new THREE.ImageLoader();
     var scope = this;
