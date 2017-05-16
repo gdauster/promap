@@ -8,6 +8,13 @@ let targetRotationOnMouseDown = 0;
 let mouseX = 0;
 let mouseXOnMouseDown = 0;
 
+let mouse3D = new THREE.Vector3();
+let mouse = new THREE.Vector2();
+
+mouse.isMousePressed = false;
+
+let raycaster = new THREE.Raycaster();
+
 let width = window.innerWidth;
 let height = window.innerHeight;
 
@@ -31,6 +38,7 @@ controls = new THREE.OrbitControls( camera, renderer.domElement );
 controls.enableDamping = true;
 controls.dampingFactor = 0.25;
 controls.enableZoom = true;
+controls.enableKeys = false;
 
 // DEFAULT EVENTS
 window.addEventListener( 'resize', (resize) => {

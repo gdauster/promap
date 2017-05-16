@@ -1,6 +1,11 @@
 // editor
 let SERVER_READY = false;
 
+const PLANE_WIDTH = 16,
+      PLANE_HEIGHT = 8,
+      PLANE_SEG_WIDTH = 30,
+      PLANE_SEG_HEIGHT = 15;
+
 class Editor extends Client {
   constructor() {
     super();
@@ -28,9 +33,24 @@ class Editor extends Client {
     camera.position.y = 0;
     camera.position.z = 8;
     camera.lookAt(new THREE.Vector3());
+    controls.enabled = false;
 
-    var geometry = new THREE.PlaneBufferGeometry( 16, 8 );
-    var material = new THREE.MeshBasicMaterial( { color: 0xe0e0e0, overdraw: 0.5 } );
+    var geometry = new THREE.PlaneGeometry( PLANE_WIDTH, PLANE_HEIGHT,
+                                            PLANE_SEG_WIDTH, PLANE_SEG_HEIGHT );
+
+    var material = new THREE.MeshBasicMaterial( { color: 0xe5e5e5, overdraw: 0.5 } );
+
+    var loader = new THREE.OBJLoader2();
+
+    scope = this;
+    loader.load("models/cursor.obj", (object) => {
+      scope.cursor = object.children[0];
+      scope.cursor.material = new THREE.MeshBasicMaterial( { color: 0xbababa } );
+      scope.cursor.rotateX(1.5707963268); // rotate 90 degrees;
+      scope.cursor.position.z = 1;
+      scope.cursor.scale.set(0.25, 0.25, 0.25);
+      scene.add(object);
+    });
 
     this.plane = new THREE.Mesh( geometry, material );
     scene.add( this.plane );
@@ -55,7 +75,7 @@ class Editor extends Client {
         var ratio = Math.min(ratiow, ratioh);
         var iwidth = image.width * ratio;
         var iheight = image.height * ratio;
-        context.fillStyle="#f0f0f0";
+        context.fillStyle="#e5e5e5";
         context.fillRect(0,0,canvas.width,canvas.height);
     		context.drawImage(image,
           (canvas.width - iwidth) / 2, (canvas.height - iheight) / 2,
@@ -80,11 +100,100 @@ class Editor extends Client {
   // call when server is ready
   ready() {
     SERVER_READY = true;
+
+    // start listening events
+    this.events();
+  }
+  getVerticesIndexesAroundOneIndex(index) {
+    let row = Math.floor(index / PLANE_SEG_WIDTH),
+        column = index - row * PLANE_SEG_WIDTH;
+    return {
+      left   : index - 1 < 0 ? NaN : index - 1,
+      right  : index + 1 > PLANE_SEG_WIDTH ? NaN : index + 1,
+      top    : row - 1 < 0 ? NaN : (row - 1) * PLANE_SEG_WIDTH + column,
+      bottom : row + 1 > PLANE_SEG_WIDTH ? NaN : (row + 1) * PLANE_SEG_WIDTH + column,
+    }
   }
   events() {
+    document.addEventListener("keydown", (event) => {
+      if (event.key === 'Control' && !controls.enabled) {
+        controls.enabled = true;
+        this.cursor.visible = false;
+        document.body.style.cursor = 'default';
+      }
+    }, false);
+    document.addEventListener("keyup", (event) => {
+      if (event.key === 'Control' && controls.enabled) {
+        controls.enabled = false;
+        this.setCursorToMousePosition();
+        this.cursor.visible = true;
+        document.body.style.cursor = 'none';
+      }
+    }, false);
+
+    document.addEventListener("mousemove", (event) => {
+
+      // mouse update
+      mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+      mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1
+
+      var intersects = raycaster.intersectObject(this.plane, false);
+
+      if (intersects.length > 0 && !controls.enabled) {
+        let face = intersects[0].face,
+            faceA = this.plane.geometry.vertices[face.a],
+            faceB = this.plane.geometry.vertices[face.b],
+            faceC = this.plane.geometry.vertices[face.c];
+
+        this.cursor.visible = true;
+        document.body.style.cursor = 'none';
+        this.setCursorToMousePosition(Math.max(faceA.z, faceB.z, faceC.z) + 0.01);
+        if (mouse.isMousePressed) {
+          faceA.z += 0.01;
+          faceB.z += 0.01;
+          faceC.z += 0.01;
+          this.plane.geometry.verticesNeedUpdate = true;
+        }
+      } else {
+        this.cursor.visible = false;
+        document.body.style.cursor = 'default';
+      }
+    }, false);
+    document.addEventListener("mousedown", (event) => {
+      mouse.isMousePressed = true;
+      var intersects = raycaster.intersectObject(this.plane, false);
+      if (intersects.length > 0 && !controls.enabled) {
+        let face = intersects[0].face,
+            faceA = this.plane.geometry.vertices[face.a],
+            faceB = this.plane.geometry.vertices[face.b],
+            faceC = this.plane.geometry.vertices[face.c];
+        var face = intersects[0].face;
+        this.setCursorToMousePosition(Math.max(faceA.z, faceB.z, faceC.z) + 0.01);
+        faceA.z += 0.01;
+        faceB.z += 0.01;
+        faceC.z += 0.01;
+        this.plane.geometry.verticesNeedUpdate = true;
+      }
+    }, false);
+    document.addEventListener("mouseup", (event) => {
+      mouse.isMousePressed = false;
+    }, false);
 
   }
+  setCursorToMousePosition(zforward=0.01) {
+    mouse3D.set(mouse.x, mouse.y, 0.5);
+    // project mouse coordinates into 3D space (x, y = mouse position, z = 0)
+    mouse3D.unproject(camera);
+    const dir = mouse3D.sub(camera.position).normalize(),
+          distance = - camera.position.z / dir.z,
+          position = camera.position.clone().add(dir.multiplyScalar(distance));
+
+   // set cursor position and move it forward (so plane and cursor are not coplanar)
+   this.cursor.position.copy(position);
+   this.cursor.position.z = zforward;
+  }
   render() {
+    raycaster.setFromCamera( mouse, camera );
     renderer.render( scene, camera );
   }
 }
