@@ -6,6 +6,9 @@ const PLANE_WIDTH = 16,
       PLANE_SEG_WIDTH = 30,
       PLANE_SEG_HEIGHT = 15;
 
+const PLANE_SEG_WIDTH1 = PLANE_SEG_WIDTH + 1,
+      PLANE_SEG_HEIGHT1 = PLANE_SEG_HEIGHT + 1;
+
 class Editor extends Client {
   constructor() {
     super();
@@ -37,10 +40,39 @@ class Editor extends Client {
 
     var geometry = new THREE.PlaneGeometry( PLANE_WIDTH, PLANE_HEIGHT,
                                             PLANE_SEG_WIDTH, PLANE_SEG_HEIGHT );
+    var geometry2 = new THREE.PlaneGeometry( PLANE_WIDTH, PLANE_HEIGHT,
+                                            PLANE_SEG_WIDTH, PLANE_SEG_HEIGHT );
 
     var material = new THREE.MeshBasicMaterial( { color: 0xe5e5e5, overdraw: 0.5 } );
+    var material2 = new THREE.MeshBasicMaterial( { color: 0xe5e5e5, overdraw: 0.5 } );
 
     var loader = new THREE.OBJLoader2();
+
+    var sphereGeometry = new THREE.SphereBufferGeometry( 5, 32, 32 );
+    var sphereMaterial = new THREE.MeshBasicMaterial( {color: 0xffffff} );
+    var sphereMaterial1 = new THREE.MeshBasicMaterial( {color: 0x00ff00} ); // left
+    var sphereMaterial2 = new THREE.MeshBasicMaterial( {color: 0xff0000} ); // right
+    var sphereMaterial3 = new THREE.MeshBasicMaterial( {color: 0x0000ff} ); // top
+    var sphereMaterial4 = new THREE.MeshBasicMaterial( {color: 0xdedede} ); // bottom
+    this.spheres = [
+      new THREE.Mesh( sphereGeometry, sphereMaterial ),
+      new THREE.Mesh( sphereGeometry, sphereMaterial ),
+      new THREE.Mesh( sphereGeometry, sphereMaterial ),
+      new THREE.Mesh( sphereGeometry, sphereMaterial1 ),
+      new THREE.Mesh( sphereGeometry, sphereMaterial2 ),
+      new THREE.Mesh( sphereGeometry, sphereMaterial3 ),
+      new THREE.Mesh( sphereGeometry, sphereMaterial4 )
+    ]
+
+    for (var i = 0; i < this.spheres.length; i++) {
+      this.spheres[i].scale.set(0.01, 0.01, 0.01);
+      scene.add(this.spheres[i]);
+    }
+
+    this.plane = new THREE.Mesh( geometry, material );
+    this.planeRaycaster = new THREE.Mesh( geometry2, material2 );
+    this.planeRaycaster.position.z = -0.001;
+    scene.add( this.plane );
 
     scope = this;
     loader.load("models/cursor.obj", (object) => {
@@ -52,8 +84,6 @@ class Editor extends Client {
       scene.add(object);
     });
 
-    this.plane = new THREE.Mesh( geometry, material );
-    scene.add( this.plane );
 
     var loader = new THREE.ImageLoader();
     var scope = this;
@@ -104,14 +134,56 @@ class Editor extends Client {
     // start listening events
     this.events();
   }
+  _distanceToCentre(v, w, radiusInverseSquared) {
+    let a = v.x - w.x;
+    let b = v.z - w.z;
+    return (a * a + b * b) * radiusInverseSquared;
+  }
   getVerticesIndexesAroundOneIndex(index) {
-    let row = Math.floor(index / PLANE_SEG_WIDTH),
-        column = index - row * PLANE_SEG_WIDTH;
+    let row = Math.floor(index / PLANE_SEG_WIDTH1), // on x axis
+        column = index - row * PLANE_SEG_WIDTH1; // on y axis
+
     return {
-      left   : index - 1 < 0 ? NaN : index - 1,
-      right  : index + 1 > PLANE_SEG_WIDTH ? NaN : index + 1,
-      top    : row - 1 < 0 ? NaN : (row - 1) * PLANE_SEG_WIDTH + column,
-      bottom : row + 1 > PLANE_SEG_WIDTH ? NaN : (row + 1) * PLANE_SEG_WIDTH + column,
+      row, column,
+      left   : column - 1 < 0 ? NaN : index - 1,
+      right  : column + 1 >= PLANE_SEG_WIDTH1 ? NaN : index + 1,
+      top    : row - 1 < 0 ? NaN : (row - 1) * PLANE_SEG_WIDTH1 + column,
+      bottom : row + 1 >= PLANE_SEG_HEIGHT1 ? NaN : (row + 1) * PLANE_SEG_WIDTH1 + column,
+    }
+  }
+  _moveFaceAndCursorForward(aFace, hasToMoveFace) {
+    let faceA = this.plane.geometry.vertices[aFace.a],
+        faceB = this.plane.geometry.vertices[aFace.b],
+        faceC = this.plane.geometry.vertices[aFace.c];
+    this.setCursorToMousePosition(Math.max(faceA.z, faceB.z, faceC.z) + 0.01);
+
+    if (hasToMoveFace) {
+      faceA.z += 0.01;
+      faceB.z += 0.01;
+      faceC.z += 0.01;
+      this.plane.geometry.verticesNeedUpdate = true;
+    }
+
+    this.spheres[0].position.set(faceA.x, faceA.y, faceA.z);
+    /*this.spheres[1].position.set(faceB.x, faceB.y, faceB.z);
+    this.spheres[2].position.set(faceC.x, faceC.y, faceC.z);*/
+    var indexes = this.getVerticesIndexesAroundOneIndex(aFace.a);
+    console.log(indexes);
+    if (!isNaN(indexes.left)) {
+      var f = this.plane.geometry.vertices[indexes.left];
+      this.spheres[3].position.set(f.x, f.y, f.z);
+    }
+    if (!isNaN(indexes.right)) {
+      var f = this.plane.geometry.vertices[indexes.right];
+      this.spheres[4].position.set(f.x, f.y, f.z);
+    }
+    if (!isNaN(indexes.top)) {
+      var f = this.plane.geometry.vertices[indexes.top];
+      this.spheres[5].position.set(f.x, f.y, f.z);
+    }
+    if (!isNaN(indexes.bottom)) {
+      var f = this.plane.geometry.vertices[indexes.bottom];
+      this.spheres[6].position.set(f.x, f.y, f.z);
     }
   }
   events() {
@@ -137,23 +209,12 @@ class Editor extends Client {
       mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
       mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1
 
-      var intersects = raycaster.intersectObject(this.plane, false);
+      var intersects = raycaster.intersectObject(this.planeRaycaster, false);
 
       if (intersects.length > 0 && !controls.enabled) {
-        let face = intersects[0].face,
-            faceA = this.plane.geometry.vertices[face.a],
-            faceB = this.plane.geometry.vertices[face.b],
-            faceC = this.plane.geometry.vertices[face.c];
-
         this.cursor.visible = true;
         document.body.style.cursor = 'none';
-        this.setCursorToMousePosition(Math.max(faceA.z, faceB.z, faceC.z) + 0.01);
-        if (mouse.isMousePressed) {
-          faceA.z += 0.01;
-          faceB.z += 0.01;
-          faceC.z += 0.01;
-          this.plane.geometry.verticesNeedUpdate = true;
-        }
+        this._moveFaceAndCursorForward(intersects[0].face, mouse.isMousePressed);
       } else {
         this.cursor.visible = false;
         document.body.style.cursor = 'default';
@@ -161,18 +222,9 @@ class Editor extends Client {
     }, false);
     document.addEventListener("mousedown", (event) => {
       mouse.isMousePressed = true;
-      var intersects = raycaster.intersectObject(this.plane, false);
+      var intersects = raycaster.intersectObject(this.planeRaycaster, false);
       if (intersects.length > 0 && !controls.enabled) {
-        let face = intersects[0].face,
-            faceA = this.plane.geometry.vertices[face.a],
-            faceB = this.plane.geometry.vertices[face.b],
-            faceC = this.plane.geometry.vertices[face.c];
-        var face = intersects[0].face;
-        this.setCursorToMousePosition(Math.max(faceA.z, faceB.z, faceC.z) + 0.01);
-        faceA.z += 0.01;
-        faceB.z += 0.01;
-        faceC.z += 0.01;
-        this.plane.geometry.verticesNeedUpdate = true;
+        this._moveFaceAndCursorForward(intersects[0].face, mouse.isMousePressed);
       }
     }, false);
     document.addEventListener("mouseup", (event) => {
