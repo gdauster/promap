@@ -4,10 +4,23 @@ let SERVER_READY = false;
 const PLANE_WIDTH = 16,
       PLANE_HEIGHT = 8,
       PLANE_SEG_WIDTH = 30,
-      PLANE_SEG_HEIGHT = 15;
+      PLANE_SEG_HEIGHT = 15,
+      CIRCLE_RADIUS = 3;
 
 const PLANE_SEG_WIDTH1 = PLANE_SEG_WIDTH + 1,
       PLANE_SEG_HEIGHT1 = PLANE_SEG_HEIGHT + 1;
+
+const PLANE_SLAB_HEIGHT =  PLANE_HEIGHT / PLANE_SEG_HEIGHT,
+      PLANE_SLAB_HEIGHT_HALF = PLANE_SLAB_HEIGHT / 2;
+
+const PLANE_SLAB_WIDTH =  PLANE_WIDTH / PLANE_SEG_WIDTH,
+      PLANE_SLAB_WIDTH_HALF = PLANE_SLAB_WIDTH / 2;
+
+const RADIUS_SQUARED = CIRCLE_RADIUS * CIRCLE_RADIUS;
+
+function compareNombres(a, b) {
+  return a - b;
+}
 
 class Editor extends Client {
   constructor() {
@@ -134,10 +147,10 @@ class Editor extends Client {
     // start listening events
     this.events();
   }
-  _distanceToCentre(v, w, radiusInverseSquared) {
+  isInsideRadius(v, w) {
     let a = v.x - w.x;
     let b = v.z - w.z;
-    return (a * a + b * b) * radiusInverseSquared;
+    return (a * a + b * b) < RADIUS_SQUARED;
   }
   getVerticesIndexesAroundOneIndex(index) {
     let row = Math.floor(index / PLANE_SEG_WIDTH1), // on x axis
@@ -151,40 +164,104 @@ class Editor extends Client {
       bottom : row + 1 >= PLANE_SEG_HEIGHT1 ? NaN : (row + 1) * PLANE_SEG_WIDTH1 + column,
     }
   }
+  // add a coordinate so the triangle face (a, b, c) is now a square (a, b, c, d)
+  // faceC is always on the top right corner
+  getSquareAroundFace(face) {
+    let indexesA = this.getVerticesIndexesAroundOneIndex(face.a),
+        indexesB = this.getVerticesIndexesAroundOneIndex(face.b),
+        indexesC = this.getVerticesIndexesAroundOneIndex(face.c);
+    if (indexesC.left === face.a) // if faceA is on the left of faceC, (a, c, botC, b)
+      return { a : face.a, b : face.c, c : indexesC.bottom, d : face.b };
+    else (indexesC.bottom === face.b) // if faceB is on the left of faceC, (lefC, c, b, a)
+      return { a : indexesC.left, b : face.c, c : face.b, d : face.a };
+  }
+  getVerticesIndexesAroundFace(face) {
+    let indexesA = this.getVerticesIndexesAroundOneIndex(aFace.a),
+        indexesB = this.getVerticesIndexesAroundOneIndex(aFace.b),
+        indexesC = this.getVerticesIndexesAroundOneIndex(aFace.c);
+
+    // locate the point
+  }
+  getCoordinatesDistanceToCenter(square) {
+  let verticeA = this.plane.geometry.vertices[square.a],
+      verticeB = this.plane.geometry.vertices[square.b],
+      verticeC = this.plane.geometry.vertices[square.c],
+      verticeD = this.plane.geometry.vertices[square.d];
+
+    let squareCentre = new THREE.Vector3( // into 2d space
+      verticeA.x + PLANE_SLAB_WIDTH_HALF,
+      0,
+      verticeA.z + PLANE_SLAB_HEIGHT_HALF
+    );
+
+    let listToLocate = [];
+    if (this.isInsideRadius(verticeA, squareCentre))
+      this.insertDichotomic(square.a, listToLocate);
+    if (this.isInsideRadius(verticeB, squareCentre))
+      this.insertDichotomic(square.b, listToLocate);
+    if (this.isInsideRadius(verticeC, squareCentre))
+      this.insertDichotomic(square.c, listToLocate);
+    if (this.isInsideRadius(verticeD, squareCentre))
+      this.insertDichotomic(square.d, listToLocate);
+    console.log(listToLocate);
+  }
+  containsDichotomic(element, anArray) {
+    function rec_dichotomic(imin, imax) {
+      if (imax > imin) return -1;
+      let m = Math.floor((imin + imax) / 2);
+      if (anArray[m] === element)
+        return m;
+      else if (element > anArray[m])
+        return rec_dichotomic(m + 1, imax);
+      else
+        return rec_dichotomic(imin, m - 1);
+    }
+    return rec_dichotomic(0, anArray.length);
+  }
+  insertDichotomic(element, anArray) {
+    console.log(element);
+    if (anArray.length === 0)
+      anArray.push(element);
+    else
+      for (var i = anArray.length - 1; i >= 0 ; i--) {
+        if (anArray[i] > element) {
+          anArray.splice(i + 1, 0, element);
+          return;
+        }
+      }
+  }
   _moveFaceAndCursorForward(aFace, hasToMoveFace) {
-    let faceA = this.plane.geometry.vertices[aFace.a],
-        faceB = this.plane.geometry.vertices[aFace.b],
-        faceC = this.plane.geometry.vertices[aFace.c];
-    this.setCursorToMousePosition(Math.max(faceA.z, faceB.z, faceC.z) + 0.01);
+    const square = this.getSquareAroundFace(aFace);
+    let faceA = this.plane.geometry.vertices[square.a],
+        faceB = this.plane.geometry.vertices[square.b],
+        faceC = this.plane.geometry.vertices[square.c],
+        faceD = this.plane.geometry.vertices[square.d];
+    this.setCursorToMousePosition(Math.max(faceA.z, faceB.z, faceC.z, faceD.z) + 0.01);
+
+    // compute centroid
+    /*let centroid = new THREE.Vector3(
+      (faceA.x + faceB.x + faceC.x) / 3,
+      (faceA.y + faceB.y + faceC.y) / 3,
+      (faceA.z + faceB.z + faceC.z) / 3,
+    )*/
+
+    console.log("***************");
+    this.getCoordinatesDistanceToCenter(square);
+        console.log("***************");
+
 
     if (hasToMoveFace) {
       faceA.z += 0.01;
       faceB.z += 0.01;
       faceC.z += 0.01;
+      faceD.z += 0.01;
       this.plane.geometry.verticesNeedUpdate = true;
     }
 
-    this.spheres[0].position.set(faceA.x, faceA.y, faceA.z);
-    /*this.spheres[1].position.set(faceB.x, faceB.y, faceB.z);
-    this.spheres[2].position.set(faceC.x, faceC.y, faceC.z);*/
-    var indexes = this.getVerticesIndexesAroundOneIndex(aFace.a);
-    console.log(indexes);
-    if (!isNaN(indexes.left)) {
-      var f = this.plane.geometry.vertices[indexes.left];
-      this.spheres[3].position.set(f.x, f.y, f.z);
-    }
-    if (!isNaN(indexes.right)) {
-      var f = this.plane.geometry.vertices[indexes.right];
-      this.spheres[4].position.set(f.x, f.y, f.z);
-    }
-    if (!isNaN(indexes.top)) {
-      var f = this.plane.geometry.vertices[indexes.top];
-      this.spheres[5].position.set(f.x, f.y, f.z);
-    }
-    if (!isNaN(indexes.bottom)) {
-      var f = this.plane.geometry.vertices[indexes.bottom];
-      this.spheres[6].position.set(f.x, f.y, f.z);
-    }
+    this.spheres[3].position.set(faceA.x, faceA.y, faceA.z);
+    this.spheres[4].position.set(faceB.x, faceB.y, faceB.z);
+    this.spheres[5].position.set(faceC.x, faceC.y, faceC.z);
+    this.spheres[6].position.set(faceD.x, faceD.y, faceD.z);
   }
   events() {
     document.addEventListener("keydown", (event) => {
@@ -220,6 +297,7 @@ class Editor extends Client {
         document.body.style.cursor = 'default';
       }
     }, false);
+
     document.addEventListener("mousedown", (event) => {
       mouse.isMousePressed = true;
       var intersects = raycaster.intersectObject(this.planeRaycaster, false);
