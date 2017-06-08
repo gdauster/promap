@@ -3,6 +3,7 @@ const socketio = require('socket.io');
 const fs = require('fs');
 const path = require('path');
 const babel = require('babel-core');
+const WebSocket = require('ws');
 
 
 class Server {
@@ -88,13 +89,31 @@ server.serve((socket) => {
   });
 
   socket.on('editor.send_rendered', (dataURL) => {
+
+    console.log(new Date().getTime());
+    console.time("serveur");
     console.log('send rendered');
     for (var i = 0; i < server.sockets.length; i++) {
       server.sockets[i].emit('projection.receive_rendered', dataURL);
     }
+      console.timeEnd("serveur");
   })
 
   socket.emit('server.ok');
+});
+
+const wss = new WebSocket.Server({ port: 8090 });
+
+wss.on('connection', function connection(ws) {
+  ws.on('message', function incoming(data) {
+    wss.clients.forEach(function each(client) {
+      if (client !== ws && client.readyState === WebSocket.OPEN) {
+        client.send(data);
+      }
+    });
+  });
+
+  ws.send('something');
 });
 
 console.log('server ready');

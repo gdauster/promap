@@ -39,9 +39,27 @@ class Editor extends Client {
     document.body.appendChild(this.menu);
     this.menu.addEventListener('click', () => {
       scene.remove(this.axisHelper);
-        renderer.render( scene, camera );
-        this.socket.emit('editor.send_rendered', renderer.domElement.toDataURL());
-          scene.add(this.axisHelper);
+      renderer.render( scene, camera );
+      const renderTarget = new THREE.WebGLRenderTarget(renderer.domElement.width, renderer.domElement.height);
+
+      renderer.render( scene, camera, renderTarget );
+      //var abuffer = new ArrayBuffer();
+      var buffer = new Uint8Array(renderer.domElement.width * renderer.domElement.height * 4);
+      var buffer2 = new Uint8Array(4);
+      buffer2[0] = renderer.domElement.width;
+      buffer2[1] = renderer.domElement.width >> 8;
+      buffer2[2] = renderer.domElement.height;
+      buffer2[3] = renderer.domElement.height >> 8;
+      renderer.readRenderTargetPixels(renderTarget, 0, 0, renderer.domElement.width, renderer.domElement.height, buffer);
+
+
+
+      const ws = new WebSocket('ws://127.0.0.1:8090');
+      ws.addEventListener('open', function (event) {
+      var blob = new Blob([buffer2, buffer], {type: 'application/octet-binary'});
+      ws.send(blob);
+      });
+      scene.add(this.axisHelper);
     });
 
     // Cube
@@ -203,7 +221,6 @@ class Editor extends Client {
       this.insertDichotomic(square.c, listToLocate);
     if (this.isInsideRadius(verticeD, squareCentre))
       this.insertDichotomic(square.d, listToLocate);
-    console.log(listToLocate);
   }
   containsDichotomic(element, anArray) {
     function rec_dichotomic(imin, imax) {
@@ -219,7 +236,6 @@ class Editor extends Client {
     return rec_dichotomic(0, anArray.length);
   }
   insertDichotomic(element, anArray) {
-    console.log(element);
     if (anArray.length === 0)
       anArray.push(element);
     else
@@ -245,9 +261,7 @@ class Editor extends Client {
       (faceA.z + faceB.z + faceC.z) / 3,
     )*/
 
-    console.log("***************");
     this.getCoordinatesDistanceToCenter(square);
-        console.log("***************");
 
 
     if (hasToMoveFace) {
