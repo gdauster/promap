@@ -18,6 +18,13 @@ const PLANE_SLAB_WIDTH =  PLANE_WIDTH / PLANE_SEG_WIDTH,
 
 const RADIUS_SQUARED = CIRCLE_RADIUS * CIRCLE_RADIUS;
 
+let WS_OPEN = false;
+
+const ws = new WebSocket('ws://127.0.0.1:8090');
+ws.addEventListener('open', function (event) {
+  WS_OPEN = true;
+});
+
 function compareNombres(a, b) {
   return a - b;
 }
@@ -38,28 +45,7 @@ class Editor extends Client {
     this.menu.style.top = 0;
     document.body.appendChild(this.menu);
     this.menu.addEventListener('click', () => {
-      scene.remove(this.axisHelper);
-      renderer.render( scene, camera );
-      const renderTarget = new THREE.WebGLRenderTarget(renderer.domElement.width, renderer.domElement.height);
 
-      renderer.render( scene, camera, renderTarget );
-      //var abuffer = new ArrayBuffer();
-      var buffer = new Uint8Array(renderer.domElement.width * renderer.domElement.height * 4);
-      var buffer2 = new Uint8Array(4);
-      buffer2[0] = renderer.domElement.width;
-      buffer2[1] = renderer.domElement.width >> 8;
-      buffer2[2] = renderer.domElement.height;
-      buffer2[3] = renderer.domElement.height >> 8;
-      renderer.readRenderTargetPixels(renderTarget, 0, 0, renderer.domElement.width, renderer.domElement.height, buffer);
-
-
-
-      const ws = new WebSocket('ws://127.0.0.1:8090');
-      ws.addEventListener('open', function (event) {
-      var blob = new Blob([buffer2, buffer], {type: 'application/octet-binary'});
-      ws.send(blob);
-      });
-      scene.add(this.axisHelper);
     });
 
     // Cube
@@ -157,6 +143,35 @@ class Editor extends Client {
     		console.log( 'An error happened' );
     	}
     );
+  }
+  sendData() {
+    if (WS_OPEN) {
+      scene.remove(this.axisHelper);
+
+      // render scene into renderTarget
+      const renderTarget = new THREE.WebGLRenderTarget(renderer.domElement.width,
+                                                       renderer.domElement.height);
+      renderer.render( scene, camera, renderTarget );
+
+      // prepare buffers for sending image data and size
+      var buffer = new Uint8Array(renderer.domElement.width * renderer.domElement.height * 4);
+      var size = new Uint8Array(4);
+      size[0] = renderer.domElement.width;
+      size[1] = renderer.domElement.width >> 8;
+      size[2] = renderer.domElement.height;
+      size[3] = renderer.domElement.height >> 8;
+
+      // read buffer
+      renderer.readRenderTargetPixels(renderTarget, 0, 0,
+                                      renderer.domElement.width,
+                                      renderer.domElement.height, buffer);
+
+      // send data
+      var blob = new Blob([size, buffer], {type: 'application/octet-binary'});
+      ws.send(blob);
+
+      scene.add(this.axisHelper);
+    }
   }
   // call when server is ready
   ready() {
@@ -345,7 +360,17 @@ class Editor extends Client {
 /*** START HERE ***/
 const _e = new Editor();
 
-function animate() {
+let start, progress, elapsed = 0, oldtime = 0;
+const every_ms = 200;
+
+function animate(timestamp) {
+  if (!start) start = timestamp;
+  elapsed = timestamp - start;
+  if (elapsed - oldtime > every_ms) {
+    _e.sendData()
+    oldtime = timestamp - start;
+  }
+  progress = timestamp - start;
   requestAnimationFrame(animate);
   // update elements
   controls.update();

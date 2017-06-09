@@ -43,6 +43,7 @@ class Server {
 const base = '/../mapping/',
       index = base + 'view/index.html',
       editor = base + 'view/editor.html',
+      editor2 = base + 'view/editor2.html',
       projection = base + 'view/projection.html';
 
 // Create server instance, with specific port, ip
@@ -51,6 +52,7 @@ const configFile = fs.readFileSync(__dirname + '/../config.json', 'binary'),
       server = new Server(config.port, config.ipaddr),
       api = {
         editor: server.compile(['Client', 'variable', '../mapping/api/editor'], true),
+        editor2: server.compile(['Client', '../mapping/api/WorkingSpace', '../mapping/api/editor2d'], true),
         projection: server.compile(['Client', '../mapping/api/projection'], true),
       };
 
@@ -65,6 +67,10 @@ server.handleURL('/editor', (req, res) => {
     res.sendFile(path.join(__dirname + editor));
 });
 
+server.handleURL('/editor2', (req, res) => {
+    res.sendFile(path.join(__dirname + editor2));
+});
+
 server.handleURL('/projection', (req, res) => {
     res.sendFile(path.join(__dirname + projection));
 });
@@ -73,6 +79,12 @@ server.handleURL('/js/editor.js', (req, res) => {
   console.log('editor');
   api.editor = server.compile(['Client', 'variable', '../mapping/api/editor'], true);
   res.send(api.editor);
+});
+
+server.handleURL('/js/editor2d.js', (req, res) => {
+  console.log('editor');
+  api.editor2 = server.compile(['Client', '../mapping/api/WorkingSpace', '../mapping/api/editor2d'], true);
+  res.send(api.editor2);
 });
 
 server.handleURL('/js/projection.js', (req, res) => {

@@ -10,6 +10,7 @@ class Projection extends Client {
     this.canvas.height = 1024;
     this.truc = undefined;
   }
+
   ready() {
     console.log('readyyyyyy');
     const ws = new WebSocket('ws://127.0.0.1:8090');
@@ -29,27 +30,7 @@ class Projection extends Client {
         scope.canvas.width = width;
         scope.canvas.height = height;
         document.mypersonnalbuffer = buffer;
-        /*for (var i = buffer.length-1; i > 3 ; i-=4) {
-          //imagedata.data[buffer.length - i] = buffer[i];
-            const ind = buffer.length-1 - i;
-            imagedata.data[i-4-3] = buffer[ind];
-            imagedata.data[i-4-2] = buffer[ind+1];
-            imagedata.data[i-4-1] = buffer[ind+2];
-            imagedata.data[i-4] = buffer[ind+3];
-        }*/
-        /*for (let x = 0; x < width; x++) {
-          for (let y = 0; y < height; y++) {
-            // Get the pixel index
-            const pixelindex = ((y * width + x) * 4) + 4;
-            const pixelindexBuffer = (width * height) - pixelindex;
 
-            // Set the pixel data
-            imagedata.data[pixelindex] = buffer[pixelindexBuffer];     // Red
-            imagedata.data[pixelindex+1] = buffer[pixelindexBuffer+1]; // Green
-            imagedata.data[pixelindex+2] = buffer[pixelindexBuffer+2];  // Blue
-            imagedata.data[pixelindex+3] = 255;   // Alpha
-          }
-        }*/
         for (let x = 0; x < width; x++) {
           for (let y = 0; y < height; y++) {
             // Get the pixel index
@@ -99,7 +80,20 @@ class Projection extends Client {
 
 const _p = new Projection();
 
-window.addEventListener("click", () => {
-  _p.socket.emit('editor.status', 'coucou');
-  console.log('proj');
-}, false);
+let start, progress, elapsed = 0, oldtime = 0;
+const every_ms = 100;
+
+function animate(timestamp) {
+  if (!start) start = timestamp;
+  elapsed = timestamp - start;
+  if (elapsed - oldtime > every_ms) {
+    // insert code here
+    oldtime = timestamp - start;
+  }
+  progress = timestamp - start;
+  requestAnimationFrame(animate);
+  // render the sceen on every frames
+  _p.render();
+}
+// start animation
+animate();
