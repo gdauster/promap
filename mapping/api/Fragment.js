@@ -36,6 +36,7 @@ class Fragment {
 
     this.hasImage = false;
     this.ratioImage = 1;
+    this.rotation = 0;
 
     // keep actions in mind
     this.history = [];
@@ -53,10 +54,10 @@ class Fragment {
       scope.hasImage = true;
       scope.ratioImage = Math.max(scope.width / scope.image.width,
                                   scope.height / scope.image.height);
+      scope.zoom = 1; //scope.ratioImage;
       scope.pivot.x = scope.image.width * scope.ratioImage * scope.pivot.rx;
       scope.pivot.y = scope.image.height * scope.ratioImage * scope.pivot.ry;
       scope.parent.needsUpdate = true;
-      console.log();
     }
   }
   addImage(imgURL) {
@@ -92,7 +93,6 @@ class Fragment {
        this.pivot.x = (this.image.width * this.ratioImage * this.pivot.rx);
        this.pivot.y = (this.image.height * this.ratioImage * this.pivot.ry);
      }
-    console.log(this.pivot.x, this.pivot.y);
   }
   // visible range on workingSpace
   prepareRange() {
@@ -123,39 +123,48 @@ class Fragment {
       this.offset.height = this.range.max.y;
     }
   }
+  paintManipulation() {
+
+  }
+  addRotation(rotation) {
+    this.rotation += rotation;
+    console.log("rotate");
+  }
+  squareStroke() {
+
+  }
+  paintImage(scale, rotationDeg) {
+    const ctx = this.context;
+    const w_pivot = this.image.width * this.pivot.rx;
+    const h_pivot = this.image.height * this.pivot.rx;
+    ctx.save();
+    ctx.translate(w_pivot, h_pivot);
+    if (scale) ctx.scale(scale, scale);
+    if (rotationDeg) ctx.rotate(rotationDeg * Math.PI / 180);
+    ctx.translate(-w_pivot, -h_pivot);
+    this.context.drawImage(this.image, 0, 0);
+    ctx.restore();
+  }
   paint() {
     const ctx = this.context;
     ctx.clearRect(0, 0, this.width, this.height);
-    /*this.context.translate(this.position.x - (this.ratioImage * this.zoom),
-                           this.position.y - (this.ratioImage * this.zoom));*/
-    this.pivot.x = (this.image.width * this.pivot.rx);
-    this.pivot.y = (this.image.height * this.pivot.ry);
-    //ctx.translate(this.position.x, this.position.y);
+    const w_pivot = this.image.width * this.pivot.rx;
+    const h_pivot = this.image.height * this.pivot.rx;
 
-   // draw image (if any) centered to the pivot
-   ctx.save();
-   ctx.scale(this.ratioImage * this.zoom, this.ratioImage * this.zoom);
-   ctx.translate(this.pivot.x, this.pivot.y);
-   //this.context.rotate(45 * Math.PI / 180);
-   this.context.drawImage(this.image, 0, 0);
-   ctx.translate(-this.pivot.x, -this.pivot.y);
-   ctx.restore();
+    // draw image (if any) centered to the pivot
+    if (this.hasImage) {
+      ctx.translate(this.position.x, this.position.y);
+      this.paintImage(this.zoom, this.rotation);
+      console.log(this.zoom,this.position.x, this.position.y);
+    }
+    ctx.resetTransform();
 
 
-     //this.context.translate(this.pivot.x, this.pivot.y);
-    //this.context.rotate(15 * Math.PI / 180);
-    //this.context.scale(this.ratioImage * this.zoom, this.ratioImage * this.zoom);
-    //this.context.drawImage(this.image, 0, 0);
-    /*this.context.drawImage(this.image, this.range.min.x, this.range.min.y,
-                                       this.range.max.x, this.range.max.y,
-                                       this.offset.x, this.offset.y,
-                                       this.offset.width, this.offset.height);*/
-   ctx.resetTransform();
-   ctx.beginPath();
-   ctx.fillStyle = "#ff0000";
- ctx.arc(this.pivot.x, this.pivot.y, 20, 0, 2 * Math.PI);
- ctx.fill();
- console.log(w_img_half, h_img_half);
+          ctx.beginPath();
+          ctx.fillStyle = "#ff0000";
+          ctx.arc(this.position.x, this.position.y, this.zoom * 10, 0, 2 * Math.PI);
+          ctx.fill();
+
     /*console.log(
       'Min : [x :', this.range.min.x, ', y :', this.range.min.y, ']\n',
       'Max : [x :', this.range.max.x, ', y :', this.range.max.y, ']\n',
@@ -165,14 +174,14 @@ class Fragment {
     );*/
   }
   setPixel(x, y, r, g, b, a) {
-    var i = (y * this.width * this.zoom + x) * 4;
+    var i = (y * this.width + x) * 4;
     this.mainBuffer[i] = r;
     this.mainBuffer[i+1] = g;
     this.mainBuffer[i+2] = b;
     this.mainBuffer[i+3] = a;
   }
   getPixel(x, y) {
-    var i = (y * this.width * this.zoom + x) * 4;
+    var i = (y * this.width + x) * 4;
     return {
       r: this.transformedBuffer[i],
       g: this.transformedBuffer[i + 1],

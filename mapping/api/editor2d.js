@@ -12,6 +12,7 @@ class Editor2d extends Client {
     this.container.height = window.innerHeight;
 
     this.spaces = [];
+    this.aKeyIsPressed = false;
 
     // test
     this.addWorkingSpace(0, 0, window.innerWidth, window.innerHeight);
@@ -31,8 +32,20 @@ class Editor2d extends Client {
     });
 
     window.addEventListener('wheel', (event) => {
-      this.current.fragments[0].addZoom(event.deltaY / 60);
-      this.current.needsUpdate = true;
+
+        if (this.aKeyIsPressed) {
+          this.current.fragments[0].addRotation(event.deltaY / 60);
+          this.current.needsUpdate = true;
+        } else {
+          this.current.fragments[0].addZoom(event.deltaY / 6000);
+          this.current.needsUpdate = true;
+        }
+    });
+    window.addEventListener('keydown', (event) => {
+      this.aKeyIsPressed = true;
+    });
+    window.addEventListener('keyup', (event) => {
+      this.aKeyIsPressed = false;
     });
     window.addEventListener('mousemove', (event) => {
       if (mouse.isMousePressed && this.current.fragments.length > 0) {
