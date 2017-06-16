@@ -37,6 +37,9 @@ class Fragment {
     this.hasImage = false;
     this.ratioImage = 1;
 
+    // keep actions in mind
+    this.history = [];
+
 
     const scope = this;
     this.image.onload = function() {
@@ -77,8 +80,6 @@ class Fragment {
     if (this.hasImage) {
       this.ratioImage = Math.max(this.width / this.image.width,
                                  this.height / this.image.height);
-       this.pivot.x = this.position.x + (this.image.width * this.ratioImage * this.zoom * this.pivot.rx);
-       this.pivot.y = this.position.y + (this.image.height * this.ratioImage * this.zoom * this.pivot.ry);
      }
 
     // draw image
@@ -123,21 +124,38 @@ class Fragment {
     }
   }
   paint() {
-    this.context.clearRect(0, 0, this.width, this.height);
+    const ctx = this.context;
+    ctx.clearRect(0, 0, this.width, this.height);
     /*this.context.translate(this.position.x - (this.ratioImage * this.zoom),
                            this.position.y - (this.ratioImage * this.zoom));*/
-    let X = ((this.position.x - this.pivot.x) * this.zoom) + this.pivot.x;
-    let Y = ((this.position.y - this.pivot.y) * this.zoom) + this.pivot.y;
+    this.pivot.x = (this.image.width * this.pivot.rx);
+    this.pivot.y = (this.image.height * this.pivot.ry);
+    //ctx.translate(this.position.x, this.position.y);
 
-     this.context.translate(X, Y);
+   // draw image (if any) centered to the pivot
+   ctx.save();
+   ctx.scale(this.ratioImage * this.zoom, this.ratioImage * this.zoom);
+   ctx.translate(this.pivot.x, this.pivot.y);
+   //this.context.rotate(45 * Math.PI / 180);
+   this.context.drawImage(this.image, 0, 0);
+   ctx.translate(-this.pivot.x, -this.pivot.y);
+   ctx.restore();
+
+
+     //this.context.translate(this.pivot.x, this.pivot.y);
     //this.context.rotate(15 * Math.PI / 180);
-    this.context.scale(this.ratioImage * this.zoom, this.ratioImage * this.zoom);
-    this.context.drawImage(this.image, 0, 0);
+    //this.context.scale(this.ratioImage * this.zoom, this.ratioImage * this.zoom);
+    //this.context.drawImage(this.image, 0, 0);
     /*this.context.drawImage(this.image, this.range.min.x, this.range.min.y,
                                        this.range.max.x, this.range.max.y,
                                        this.offset.x, this.offset.y,
                                        this.offset.width, this.offset.height);*/
-    this.context.resetTransform();
+   ctx.resetTransform();
+   ctx.beginPath();
+   ctx.fillStyle = "#ff0000";
+ ctx.arc(this.pivot.x, this.pivot.y, 20, 0, 2 * Math.PI);
+ ctx.fill();
+ console.log(w_img_half, h_img_half);
     /*console.log(
       'Min : [x :', this.range.min.x, ', y :', this.range.min.y, ']\n',
       'Max : [x :', this.range.max.x, ', y :', this.range.max.y, ']\n',
