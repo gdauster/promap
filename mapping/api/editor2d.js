@@ -32,12 +32,11 @@ class Editor2d extends Client {
     });
 
     window.addEventListener('wheel', (event) => {
-
         if (this.aKeyIsPressed) {
-          this.current.fragments[0].addRotation(event.deltaY / 60);
+          this.current.current.addRotation(event.deltaY / 60);
           this.current.needsUpdate = true;
         } else {
-          this.current.fragments[0].addZoom(event.deltaY / 6000);
+          this.current.current.addZoom(event.deltaY / 600);
           this.current.needsUpdate = true;
         }
     });
@@ -48,23 +47,26 @@ class Editor2d extends Client {
       this.aKeyIsPressed = false;
     });
     window.addEventListener('mousemove', (event) => {
+      this.current.setMousePosition(event.clientX, event.clientY, 'move');
       if (mouse.isMousePressed && this.current.fragments.length > 0) {
-        const frag = this.current.fragments[0];
+        const frag = this.current.current;
         frag.position.x = mouse.fx + event.clientX - mouse.x;
         frag.position.y = mouse.fy + event.clientY - mouse.y;
         this.current.needsUpdate = true;
       }
     });
     window.addEventListener('mouseup', (event) => {
+      this.current.setMousePosition(event.clientX, event.clientY, 'up');
       mouse.isMousePressed = false;
     });
     window.addEventListener('mousedown', (event) => {
+      this.current.setMousePosition(event.clientX, event.clientY, 'down');
       if (event.clientX <= this.current.width || event.clientY <= this.current.height) {
         mouse.isMousePressed = true;
         mouse.x = event.clientX;
         mouse.y = event.clientY;
         if (this.current.fragments.length > 0) {
-          const frag = this.current.fragments[0];
+          const frag = this.current.current;
           mouse.fx = frag.position.x;
           mouse.fy = frag.position.y;
         }
