@@ -21,6 +21,12 @@ class WorkingSpace {
     this.renderLoop();
     this.current = undefined;
     this.addFragment();
+
+    this.context = canvas.getContext('2d');
+    this.context.beginPath();
+    this.context.fillStyle = '#727272';
+    this.context.rect(0, 0, this.width, this.height);
+    this.context.fill();
   }
   resize(width, height) {
     this.width = width;
@@ -29,6 +35,10 @@ class WorkingSpace {
       this.fragments[i].resize(width * this.defaultFragmentRatio, height * this.defaultFragmentRatio);
     }*/
     this.needsUpdate = true;
+    this.context.beginPath();
+    this.context.fillStyle = '#727272';
+    this.context.rect(0, 0, this.width, this.height);
+    this.context.fill();
   }
   setPixel(x, y, r, g, b, a) {
     var i = (y * this.width + x) * 4;
@@ -55,7 +65,7 @@ class WorkingSpace {
     };
   }
   addImage(imgURL) {
-    const fragment = new Fragment(this.width  * this.defaultFragmentRatio, this.height  * this.defaultFragmentRatio);
+    const fragment = new Fragment(1024, 720);
     document.body.appendChild(fragment.canvas);
     fragment.addImage(imgURL);
     fragment.parent = this;
@@ -63,11 +73,12 @@ class WorkingSpace {
     this.current = fragment;
   }
   addFragment() {
-    const fragment = new Fragment(this.width  * this.defaultFragmentRatio, this.height  * this.defaultFragmentRatio);
+    const fragment = new Fragment(1024, 720);
     document.body.appendChild(fragment.canvas);
     fragment.parent = this;
     this.fragments.push(fragment);
     this.current = fragment;
+    fragment.drawEmptyBackground(10, { color : '#dddddd' });
   }
   setMousePosition(mouse_x, mouse_y, mouseEventName) {
     if (this.current) {
@@ -84,6 +95,10 @@ class WorkingSpace {
   renderLoop() {
     const scope = this;
     this.renderID = setInterval(() => {
+      this.context.beginPath();
+      this.context.fillStyle = '#727272';
+      this.context.rect(0, 0, this.width, this.height);
+      this.context.fill();
       if (scope.visible && scope.needsUpdate) {
         //console.time("render loop");
         scope.needsUpdate = false;

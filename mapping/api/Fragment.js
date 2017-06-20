@@ -63,7 +63,7 @@ class Fragment {
       scope.fastBuffer = new Uint32Array(scope.arrayBuffer);
 
       scope.hasImage = true;
-      scope.ratioImage = Math.max(scope.width / scope.image.width,
+      scope.ratioImage = Math.min(scope.width / scope.image.width,
                                   scope.height / scope.image.height);
       scope.zoom = scope.ratioImage;
       scope.pivot.x = scope.image.width * scope.ratioImage * scope.pivot.rx;
@@ -114,7 +114,22 @@ class Fragment {
        this.zoomPos.y = this.image.height * 0.5 * (1 - this.zoom);
      }
   }
-  draw
+  drawEmptyBackground(squareSize, options = {}) {
+    const ctx = this.context;
+    let i = 0;
+    ctx.beginPath();
+    ctx.fillStyle = 'white';
+    ctx.rect(0, 0, this.width, this.height);
+    ctx.fill();
+    for (var x = 0; x < this.width / squareSize; x += 1) {
+      for (var y = x % 2; y < this.height / squareSize; y += 2) {
+        ctx.beginPath();
+        ctx.rect(x * squareSize, y * squareSize, squareSize, squareSize);
+        ctx.fillStyle = options.color || 'black';
+        ctx.fill();
+      }
+    }
+  }
   /**
    *
    * @param mouseEventName mouse event name could be down, up, move
@@ -275,13 +290,14 @@ class Fragment {
     ctx.fillStyle = '#333333';
     ctx.rect(0, 0, this.width, this.height);
     ctx.fill();*/
-    ctx..clearRect(0, 0, this.width, this.height);
-
-    const w_pivot = this.image.width * this.pivot.rx;
-    const h_pivot = this.image.height * this.pivot.rx;
 
     // draw image (if any) centered to the pivot
     if (this.hasImage) {
+      ctx.clearRect(0, 0, this.width, this.height);
+
+      const w_pivot = this.image.width * this.pivot.rx;
+      const h_pivot = this.image.height * this.pivot.rx;
+
       ctx.translate(this.position.x - this.beginPos.x, this.position.y - this.beginPos.y);
       this.paintImage(this.zoom, this.rotation, this.mouse.isOverImage && this.mouse.isPressed);
     }

@@ -4,7 +4,7 @@ const mouse = { x : 0, y : 0, fx : 0, fy : 0, isMousePressed : false };
 class Editor2d extends Client {
   constructor() {
     super();
-    this.container = document.createElement('canvas');
+    this.container = document.createElement('canvas')
     this.container.style.position = "absolute";
     document.body.appendChild(this.container);
     this.context = this.container.getContext( '2d' );
