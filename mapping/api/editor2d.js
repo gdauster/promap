@@ -1,6 +1,6 @@
 
 const mouse = { x : 0, y : 0, fx : 0, fy : 0, isMousePressed : false };
-
+/*
 class Editor2d extends Client {
   constructor() {
     super();
@@ -104,4 +104,34 @@ function animate(timestamp) {
   requestAnimationFrame(animate);
 }
 // start animation
-animate();
+animate();*/
+
+const app = new PIXI.Application(800, 600, { backgroundColor : 0x1099bb });
+document.body.appendChild(app.view);
+
+const container = new PIXI.Container();
+app.stage.addChild(container);
+
+/*const perso = PIXI.Sprite.fromImage('img/perso.png');
+perso.anchor.set(0.5);
+perso.scale.set(0.2, 0.2);
+perso.x = app.renderer.width / 2;
+perso.y = app.renderer.height / 2;*/
+const texture = PIXI.Texture.fromImage('img/perso.png');
+
+for (var i = 0; i < 25; i++) {
+    const perso = new PIXI.Sprite(texture);
+    perso.anchor.set(0.5);
+    perso.x = (i % 5) * 40;
+    perso.scale.set(0.1, 0.1);
+    perso.y = Math.floor(i / 5) * 40;
+    container.addChild(perso);
+}
+container.x = app.renderer.width / 2;
+container.y = app.renderer.height / 2;
+container.pivot.x = container.width / 2;
+container.pivot.y = container.height / 2;
+
+app.ticker.add((delta) => {
+  container.rotation += 0.01 * delta;
+})

@@ -31,9 +31,6 @@ class WorkingSpace {
   resize(width, height) {
     this.width = width;
     this.height = height;
-    /*for (var i = 0; i < this.fragments.length; i++) {
-      this.fragments[i].resize(width * this.defaultFragmentRatio, height * this.defaultFragmentRatio);
-    }*/
     this.needsUpdate = true;
     this.context.beginPath();
     this.context.fillStyle = '#727272';
