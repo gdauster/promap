@@ -1,3 +1,192 @@
+// checkerboard dimensions
+const CB_SIZE = 10;
+const M_SIZE = 20,
+      M_SIZE_H = M_SIZE * 0.5;
+
+/**
+ * A layer represent a part of the final image composition. Image and/or draw
+ * can be added
+ * @param {PIXI.Application} parent - hold every content that to be viewed
+ */
+class Layer {
+  constructor(parent, zOrder = 0) {
+    // container size is the same as is content
+    this.container = new PIXI.Container();
+    this.container.promapInstance = this;
+    this.parent = parent;
+
+    // attach this layer to the main renderer
+    this.parent.stage.addChild(this.container);
+
+    // keep pivot - maybe remove in futur update
+    this.pivot = { u : 0, v : 0 };
+    //this.setPivot(0.5, 0.5);
+
+    // content
+    this.content = undefined;
+    this.zoom = 1;
+    this.special = undefined;
+    this.zOrder = 0;
+    this.container.zOrder = 0;
+
+    // content interaction status
+    this.isSelected = false;
+    this.isDragging = false;
+    this.data = undefined;
+    this.downPosition = { x : 0, y : 0 };;
+
+    this.specialLayer = 'content';
+  }
+  /**
+   * Modify image pivot. default is centered
+   * @param {float} u - relative position of the pivot point into X axis
+   * (between 0 and 1)
+   * @param {float} v - relative position of the pivot point into Y axis
+   * (between 0 and 1)
+   */
+  setPivot(u, v) {
+    this.container.pivot.x = this.container.width * u;
+    this.container.pivot.y = this.container.height * v;
+    this.pivot.u = u;
+    this.pivot.v = v;
+  }
+  attachEvents() {
+
+  }
+  /**
+   * Add an image to this layer, default anchor point is image middle
+   */
+  addImage(imgURL) {
+    PIXI.loader.add('img', imgURL).load((loader, ressources) => {
+      this.content = new PIXI.Sprite(ressources.img.texture);
+      this.container.addChild(this.content);
+      this.content.interactive = true;
+      this.zoom = Math.min(this.parent.renderer.width  / this.content.width,
+                           this.parent.renderer.height / this.content.height);
+      this.content.scale.set(this.zoom, this.zoom);
+      this.content.x = this.parent.renderer.width * 0.5;
+      this.content.y = this.parent.renderer.height * 0.5;
+
+      this.content.anchor.set(0.5);
+      console.log(this.container.width, this.container.height);
+      this.content.promapInstance = this;
+
+      // attach events
+      this.content.on('mousedown', this.onContentMouseDown)
+                  .on('mouseup',   this.onContentMouseUp)
+                  .on('mousemove', this.onContentMouseMove);
+    });
+  }
+  /**
+   * Emtyness (i.e. alpha) is represented by a checkerboard
+   */
+  makeCheckerboardLayer() {
+    this.special = new PIXI.Graphics();
+    this.container.addChild(this.special);
+    this.specialLayer = 'checkerboard';
+    this.zOrder = -999;
+    this.container.zOrder = -999;
+    this.special.interactive = true;
+    this.special.beginFill(0xFFFFFF, 1);
+    this.special.drawRect(0, 0, this.parent.renderer.width, this.parent.renderer.height);
+    this.special.endFill();
+    this.special.beginFill(0xCCCCCC, 1);
+    for (var x = 0; x < this.parent.renderer.width / CB_SIZE; x += 1) {
+      for (var y = x % 2; y < this.parent.renderer.height / CB_SIZE; y += 2) {
+        this.special.drawRect(x * CB_SIZE, y * CB_SIZE, CB_SIZE, CB_SIZE);
+      }
+    }
+    this.special.endFill();
+    this.special.on('mousedown', () => {
+      for (var i = this.parent.stage.children.length - 1; i >= 0; i--) {
+        const child = this.parent.stage.children[i].promapInstance;
+        if (child.specialLayer === 'content')
+          child.notifyMouseEventOutside('mousedown');
+      }
+    });
+  }
+  makeManipulationLayer() {
+    this.special = new PIXI.Graphics();
+    this.container.addChild(this.special);
+    this.specialLayer = 'manipulation';
+    this.zOrder = 999;
+    this.container.zOrder = 999;
+    this.special.interactive = true;
+  }
+  drawManipulation(x, y, width, height) {
+    const w = width, h = height;
+    this.special.clear();
+
+    // draw a square on every image corners;
+    this.special.lineStyle(1, 0xFFFFFF, 0);
+    this.special.beginFill(0x888888, 1);
+    this.special.drawRect(x     - M_SIZE_H, y     - M_SIZE_H, M_SIZE_H, M_SIZE_H);
+    this.special.drawRect(x + w, y     - M_SIZE_H, M_SIZE_H, M_SIZE_H);
+    this.special.drawRect(x     - M_SIZE_H, y + h, M_SIZE_H, M_SIZE_H);
+    this.special.drawRect(x + w , y + h , M_SIZE_H, M_SIZE_H);
+    this.special.endFill();
+  }
+  onContentMouseDown(event) {
+    const scope = event.currentTarget.promapInstance;
+    scope.isSelected = true;
+    scope.isDragging = true;
+    scope.data = event.data;
+    const pos = scope.data.getLocalPosition(scope.container);
+    scope.downPosition.x = pos.x - scope.content.x;
+    scope.downPosition.y = pos.y - scope.content.y;
+
+    // most of the time, manipulation layer is the last children
+    for (var i = scope.parent.stage.children.length - 1; i >= 0; i--) {
+      const child = scope.parent.stage.children[i].promapInstance;
+      if (child.specialLayer === 'manipulation') {
+        child.drawManipulation(
+          scope.content.x - scope.content.width * 0.5,
+          scope.content.y - scope.content.height * 0.5,
+          scope.content.width, scope.content.height);
+        break;
+      }
+    }
+  }
+  onContentMouseUp(event) {
+    const scope = event.currentTarget.promapInstance;
+    console.log('mouse up');
+    scope.isDragging = false;
+  }
+  onContentMouseMove(event) {
+    event.stopPropagation();
+    const scope = event.currentTarget.promapInstance;
+    console.log('mouse move');
+    if (scope.isSelected && scope.isDragging) {
+      const pos = scope.data.getLocalPosition(scope.container);
+      scope.content.x = pos.x - scope.downPosition.x;
+      scope.content.y = pos.y - scope.downPosition.y;
+      for (var i = scope.parent.stage.children.length - 1; i >= 0; i--) {
+        const child = scope.parent.stage.children[i].promapInstance;
+        if (child.specialLayer === 'manipulation') {
+          child.drawManipulation(
+            scope.content.x - scope.content.width * 0.5,
+            scope.content.y - scope.content.height * 0.5,
+            scope.content.width, scope.content.height);
+          break;
+        }
+      }
+    }
+  }
+  notifyMouseEventOutside(tag) {
+    if (tag === 'mousedown') {
+      this.isSelected = true;
+      for (var i = this.parent.stage.children.length - 1; i >= 0; i--) {
+        const child = this.parent.stage.children[i].promapInstance;
+        if (child.specialLayer === 'manipulation') {
+          child.special.clear();
+          break;
+        }
+      }
+    }
+  }
+}
+
+
 
 class Fragment {
   constructor(width, height, defaultOrder = 0) {

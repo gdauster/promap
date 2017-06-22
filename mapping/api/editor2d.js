@@ -106,32 +106,19 @@ function animate(timestamp) {
 // start animation
 animate();*/
 
-const app = new PIXI.Application(800, 600, { backgroundColor : 0x1099bb });
+const app = new PIXI.Application(800, 600, { backgroundColor : 0xFFFFFF });
 document.body.appendChild(app.view);
 
-const container = new PIXI.Container();
-app.stage.addChild(container);
 
-/*const perso = PIXI.Sprite.fromImage('img/perso.png');
-perso.anchor.set(0.5);
-perso.scale.set(0.2, 0.2);
-perso.x = app.renderer.width / 2;
-perso.y = app.renderer.height / 2;*/
-const texture = PIXI.Texture.fromImage('img/perso.png');
+const cboard = new Layer(app); cboard.makeCheckerboardLayer();
+const manip = new Layer(app); manip.makeManipulationLayer();
 
-for (var i = 0; i < 25; i++) {
-    const perso = new PIXI.Sprite(texture);
-    perso.anchor.set(0.5);
-    perso.x = (i % 5) * 40;
-    perso.scale.set(0.1, 0.1);
-    perso.y = Math.floor(i / 5) * 40;
-    container.addChild(perso);
-}
-container.x = app.renderer.width / 2;
-container.y = app.renderer.height / 2;
-container.pivot.x = container.width / 2;
-container.pivot.y = container.height / 2;
 
-app.ticker.add((delta) => {
-  container.rotation += 0.01 * delta;
-})
+const layer = new Layer(app);
+layer.addImage('img/car.jpg');
+
+const fsort_byZOrder = (a, b) => { return a.zOrder - b.zOrder };
+
+app.ticker.add(function(delta) {
+    app.stage.children.sort(fsort_byZOrder);
+});
