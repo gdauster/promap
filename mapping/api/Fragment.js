@@ -53,28 +53,100 @@ class Layer {
   attachEvents() {
 
   }
+  modifyVertices(i, j, x, y, width) {
+    if (this.content != undefined) {
+      const position = (j * width + i) * 2;
+      this.content.vertices[position    ] += x;
+      this.content.vertices[position + 1] += y;
+
+    }
+  }
+  drawControlPoints(width, height) {
+    const test = new PIXI.Graphics();
+    this.content.addChild(test);
+
+    test.beginFill(0xFFFFFF, 1);
+    const sizeX = this.content.width / (width - 1);
+    const sizeY = this.content.height / (height - 1);
+    for (var i = 0; i < width; i++) {
+      for (var j = 0; j < height; j++) {
+        test.drawRect((i * sizeX) - 10, (j * sizeY) - 10, 20, 20);
+      }
+    }
+    test.endFill();
+
+  }
+  makeControlPoints(width) {
+    this.special = new PIXI.Container();
+    this.content.addChild(this.special);
+    this.special.promapControls = [];
+    for (var i = 0; i < this.content.vertices.length; i+=2) {
+      const cp = new PIXI.Graphics();
+      cp.promapInstance = this;
+      cp.beginFill(0x00ff00, 1);
+      cp.drawRect(-25, -25, 50, 50);
+      cp.endFill();
+      cp.interactive = true;
+      cp.buttonMode = true;
+      this.special.promapControls = cp;
+      this.special.addChild(cp);
+      cp.x = this.content.vertices[i];
+      cp.y = this.content.vertices[i+1];
+      const half_i = i * 0.5;
+      cp.promapCoord = { x : half_i % width, y : Math.floor((half_i) / width || 0), i };
+      cp.promapIsDragging = false;
+      cp.on('mousedown', (event) => {
+        const controlPoint = event.currentTarget;
+        const scope = event.currentTarget.promapInstance;
+        controlPoint.promapIsDragging = true;
+
+        scope.data = event.data;
+        const pos = scope.data.getLocalPosition(scope.special);
+        scope.downPosition.x = pos.x - controlPoint.x;
+        scope.downPosition.y = pos.y - controlPoint.y;
+      });
+      cp.on('mousemove', (event) => {
+        const controlPoint = event.currentTarget;
+        const scope = event.currentTarget.promapInstance;
+        if (controlPoint.promapIsDragging) {
+          const pos = scope.data.getLocalPosition(scope.special);
+          controlPoint.x = pos.x - scope.downPosition.x;
+          controlPoint.y = pos.y - scope.downPosition.y;
+
+          scope.content.vertices[controlPoint.promapCoord.i] = controlPoint.x;
+          scope.content.vertices[controlPoint.promapCoord.i+1] = controlPoint.y;
+        }
+      });
+      cp.on('mouseup', (event) => {
+        const controlPoint = event.currentTarget;
+        controlPoint.promapIsDragging = false;
+      });
+    }
+  }
   /**
    * Add an image to this layer, default anchor point is image middle
    */
   addImage(imgURL) {
     PIXI.loader.add('img', imgURL).load((loader, ressources) => {
-      this.content = new PIXI.Sprite(ressources.img.texture);
+      /*this.content = new PIXI.Sprite(ressources.img.texture);*/
+      this.content = new PIXI.mesh.Plane(ressources.img.texture, 15, 10);
       this.container.addChild(this.content);
+      this.makeControlPoints(15);
       this.content.interactive = true;
       this.zoom = Math.min(this.parent.renderer.width  / this.content.width,
                            this.parent.renderer.height / this.content.height);
       this.content.scale.set(this.zoom, this.zoom);
-      this.content.x = this.parent.renderer.width * 0.5;
-      this.content.y = this.parent.renderer.height * 0.5;
+      this.content.x = (this.parent.renderer.width - this.content.width) * 0.5;
+      this.content.y = (this.parent.renderer.height - this.content.height) * 0.5;
 
-      this.content.anchor.set(0.5);
-      console.log(this.container.width, this.container.height);
       this.content.promapInstance = this;
 
       // attach events
-      this.content.on('mousedown', this.onContentMouseDown)
+      /*this.content.on('mousedown', this.onContentMouseDown)
                   .on('mouseup',   this.onContentMouseUp)
-                  .on('mousemove', this.onContentMouseMove);
+                  .on('mousemove', this.onContentMouseMove);*/
+
+
     });
   }
   /**
@@ -140,8 +212,8 @@ class Layer {
       const child = scope.parent.stage.children[i].promapInstance;
       if (child.specialLayer === 'manipulation') {
         child.drawManipulation(
-          scope.content.x - scope.content.width * 0.5,
-          scope.content.y - scope.content.height * 0.5,
+          scope.content.x,
+          scope.content.y,
           scope.content.width, scope.content.height);
         break;
       }
@@ -164,8 +236,8 @@ class Layer {
         const child = scope.parent.stage.children[i].promapInstance;
         if (child.specialLayer === 'manipulation') {
           child.drawManipulation(
-            scope.content.x - scope.content.width * 0.5,
-            scope.content.y - scope.content.height * 0.5,
+            scope.content.x,
+            scope.content.y,
             scope.content.width, scope.content.height);
           break;
         }
