@@ -28,6 +28,8 @@ class Layer {
     this.special = undefined;
     this.zOrder = 0;
     this.container.zOrder = 0;
+    this.controlPoints = [];
+    this.segments = { x : 0, y : 0 };
 
     // content interaction status
     this.isSelected = false;
@@ -76,6 +78,39 @@ class Layer {
     test.endFill();
 
   }
+  selectNeighborsAtDistance(index, distance) {
+    // select indexes
+    let row = Math.floor(index / (this.segments.x)), // on x axis
+        column = index - row * (this.segments.x) ; // on y axis
+    const result = {
+      row, column,
+      left   : column - 1 < 0 ? NaN : index - 1,
+      right  : column + 1 >= this.segments.x ? NaN : index + 1,
+      top    : row - 1 < 0 ? NaN : (row - 1) * this.segments.x + column,
+      bottom : row + 1 >= this.segments.y ? NaN : (row + 1) * this.segments.x + column,
+    }
+
+    // control points
+    const cps = [this.controlPoints[index]];
+    /*if (!Number.isNaN(result.left)) cps.push(this.controlPoints[result.left]);
+    if (!Number.isNaN(result.right)) cps.push(this.controlPoints[result.right]);
+    if (!Number.isNaN(result.top)) cps.push(this.controlPoints[result.top]);
+    if (!Number.isNaN(result.bottom)) cps.push(this.controlPoints[result.bottom]);*/
+    for (var i = 0; i < this.controlPoints.length; i++)
+      this.controlPoints[i].promapIsMarked = false;
+    for (var i = 0; i < cps.length; i++)
+      cps[i].promapIsMarked = true;
+    this.redrawControlPoints();
+    return cps;
+  }
+  redrawControlPoints() {
+    for (var i = 0; i < this.controlPoints.length; i++) {
+      const cp = this.controlPoints[i];
+      cp.beginFill(cp.promapIsMarked ? 0x0000ff : 0x00ff00, 1);
+      cp.drawRect(-25, -25, 50, 50);
+      cp.endFill();
+    }
+  }
   makeControlPoints(width) {
     this.special = new PIXI.Container();
     this.content.addChild(this.special);
@@ -83,6 +118,7 @@ class Layer {
     for (var i = 0; i < this.content.vertices.length; i+=2) {
       const cp = new PIXI.Graphics();
       cp.promapInstance = this;
+      this.controlPoints.push(cp);
       cp.beginFill(0x00ff00, 1);
       cp.drawRect(-25, -25, 50, 50);
       cp.endFill();
@@ -93,12 +129,15 @@ class Layer {
       cp.x = this.content.vertices[i];
       cp.y = this.content.vertices[i+1];
       const half_i = i * 0.5;
+      cp.promapIndex = half_i;
       cp.promapCoord = { x : half_i % width, y : Math.floor((half_i) / width || 0), i };
       cp.promapIsDragging = false;
+      cp.promapIsMarked = false;
       cp.on('mousedown', (event) => {
         const controlPoint = event.currentTarget;
         const scope = event.currentTarget.promapInstance;
         controlPoint.promapIsDragging = true;
+        const neighbors = this.selectNeighborsAtDistance(controlPoint.promapIndex);
 
         scope.data = event.data;
         const pos = scope.data.getLocalPosition(scope.special);
@@ -110,8 +149,21 @@ class Layer {
         const scope = event.currentTarget.promapInstance;
         if (controlPoint.promapIsDragging) {
           const pos = scope.data.getLocalPosition(scope.special);
-          controlPoint.x = pos.x - scope.downPosition.x;
-          controlPoint.y = pos.y - scope.downPosition.y;
+
+          const xcp = pos.x - scope.downPosition.x;
+          const ycp = pos.y - scope.downPosition.y;
+          const deltax = xcp - controlPoint.x;
+          const deltay = ycp - controlPoint.y;
+          controlPoint.x = xcp;
+          controlPoint.y = ycp;
+
+          const neighbors = this.selectNeighborsAtDistance(controlPoint.promapIndex);
+          for (var i = 0; i < neighbors.length; i++) {
+            neighbors[i].x += deltax * 0.5;
+            neighbors[i].y += deltay * 0.5;
+            scope.content.vertices[neighbors[i].promapCoord.i] = neighbors[i].x;
+            scope.content.vertices[neighbors[i].promapCoord.i+1] = neighbors[i].y;
+          }
 
           scope.content.vertices[controlPoint.promapCoord.i] = controlPoint.x;
           scope.content.vertices[controlPoint.promapCoord.i+1] = controlPoint.y;
@@ -129,9 +181,12 @@ class Layer {
   addImage(imgURL) {
     PIXI.loader.add('img', imgURL).load((loader, ressources) => {
       /*this.content = new PIXI.Sprite(ressources.img.texture);*/
-      this.content = new PIXI.mesh.Plane(ressources.img.texture, 15, 10);
+      this.segments.x = 2;
+      this.segments.y = 2;
+      this.content = new PIXI.mesh.Plane(ressources.img.texture, this.segments.x, this.segments.y);
       this.container.addChild(this.content);
-      this.makeControlPoints(15);
+      this.makeControlPoints(this.segments.x);
+      this.content.canvasPadding = 1;
       this.content.interactive = true;
       this.zoom = Math.min(this.parent.renderer.width  / this.content.width,
                            this.parent.renderer.height / this.content.height);
@@ -140,6 +195,8 @@ class Layer {
       this.content.y = (this.parent.renderer.height - this.content.height) * 0.5;
 
       this.content.promapInstance = this;
+      //this.content.skew.x = 10 * Math.PI / 180;
+      //this.content.skew.y = 10 * Math.PI / 180;
 
       // attach events
       /*this.content.on('mousedown', this.onContentMouseDown)
