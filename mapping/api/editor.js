@@ -33,6 +33,182 @@ class Editor extends Client {
   constructor() {
     super();
     this.type = 'editor';
+    camera.position.x = 0;
+    camera.position.y = 0;
+    camera.position.z = 8;
+
+    // control points for cubic bezier
+    this.defaultControl = [0, 1/3, 2/3, 1];
+    this.emptyControl = [0, 0, 0, 0];
+
+    // bezier segment steps
+    this.bezierSegments = 10;
+    this.bezierSteps = 1 / this.bezierSegments;
+    this.bezierParam = [];
+    for (var i = 0; i < this.bezierSegments; i++) {
+      const t = i * this.bezierSteps;
+      const t2 = t * t;
+      const one_minus_t = 1.0 - t;
+      const one_minus_t2 = one_minus_t * one_minus_t;
+      this.bezierParam.push({ t, t2, one_minus_t, one_minus_t2 });
+    }
+
+    this.history = {
+      count : 0,
+      values : [] // array of array of 4 floats (control points)
+    };
+    this.current = {
+      deform : {
+        curvesX : [this.createCurve(0.5, 'x')],
+        curvesY : [this.createCurve(0.5, 'y')]
+      }
+    }
+
+    var loader = new THREE.TextureLoader();
+    var scope = this;
+    loader.load(
+    	// resource URL
+    	'img/car.jpg',
+    	// Function when resource is loaded
+    	function ( texture ) {
+        var geometry = new THREE.PlaneGeometry( PLANE_WIDTH, PLANE_HEIGHT,
+                                                PLANE_SEG_WIDTH, PLANE_SEG_HEIGHT );
+        scope.uniforms = {
+          //time: { type: "f", value: 0 },
+          resolution: { type: "f", value: PLANE_WIDTH / PLANE_HEIGHT },
+          draw: { type: "f", value: -1 },
+          mouse : { type: "v2", value: new THREE.Vector2 },
+          control : { type: "fv1", value: scope.current.deform.curvesX[0].controlPoints },
+          //control : { type: "v2v", value: [new THREE.Vector2, new THREE.Vector2, new THREE.Vector2, new THREE.Vector2] },
+          segments : { type: "i", value: 10 },
+          texture: {type: 't', value: texture}
+        };
+        //scope.control
+        scope.modifyCurrentDeformCurveX(0, 0.0, -0.5, 0.5, 0.0);
+        var material = new THREE.ShaderMaterial({
+          uniforms: scope.uniforms,
+          vertexShader: document.getElementById('zoomVertexShader').innerHTML,
+          fragmentShader: document.getElementById('zoomFragmentShader').innerHTML
+        });
+
+        /*var texture = new THREE.Texture(canvas);
+        texture.needsUpdate = true;
+        var material = new THREE.MeshBasicMaterial({ map: texture });*/
+
+        scope.plane = new THREE.Mesh( geometry, material );
+        scene.add( scope.plane );
+      },
+      // Function called when download progresses
+      function ( xhr ) {
+        console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+      },
+      // Function called when download errors
+      function ( xhr ) {
+        console.log( 'An error happened' );
+      }
+    );
+  }
+  addCurrentElementToHistory(element, index) {
+    this.history.deform.curves.X.values.push({
+      position : curve.position,
+      curve : curve.curve,
+      curve : curve.position,
+    });
+  }
+  // compute bezier cubic curve over one dimension (X or Y axis)
+  cubicBezier(cp1, cp2, cp3, cp4) {
+    const result = [];
+    for (var i = 0; i < this.bezierParam.length; i++) {
+      const p = this.bezierParam[i];
+      result.push(
+         cp1 * p.one_minus_t2 * p.one_minus_t
+       + cp2 * 3.0 * p.t * p.one_minus_t2
+       + cp3 * 3.0 * p.t2 * p.one_minus_t
+       + cp4 * p.t2 * p.t);
+    }
+    return result;
+  }
+  modifyCurrentDeformCurveX(index, x1, x2, x3, x4) {
+    const cur = this.current.deform.curvesX[index];
+    cur.curve[0].x = x1;
+    cur.curve[1].x = x2;
+    cur.curve[2].x = x3;
+    cur.curve[3].x = x4;
+    cur.controlPoints = [cur.curve[0].x, cur.curve[1].x, cur.curve[2].x, cur.curve[3].x];
+    this.uniforms.control.value = cur.controlPoints;
+  }
+  // work only with cubic bezier curve
+  createCurve(position, axis) {
+    if (this.defaultControl.length !== 4) return;
+    const curve = [];
+    let valX = this.defaultControl, valY = this.emptyControl;
+    if (axis.toLowerCase() === 'x') {
+      valX = this.emptyControl;
+      valY = this.defaultControl;
+    }
+    for (var i = 0; i < valX.length; i++)
+      curve.push(new THREE.Vector2(valX[i], valY[i]));
+
+    return {
+      position, curve, axis : axis.toLowerCase(),
+      controlPoints : [curve[0].x, curve[1].x, curve[2].x, curve[3].x]
+    }
+  }
+  render(time) {
+      raycaster.setFromCamera( mouse, camera );
+      renderer.render( scene, camera );
+  }
+  sendData() {
+
+  }
+}
+
+
+window.addEventListener('mousemove', (event) => {
+  mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+  mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+  if (mouse.isMousePressed && _e.uniforms) {
+    var intersects = raycaster.intersectObject(_e.plane);
+    _e.uniforms.draw.value = -1;
+    if (intersects.length > 0) {
+      var point = intersects[0].point;
+      _e.uniforms.mouse.value.x = 0.5 + (_e.plane.position.x - point.x) / -PLANE_WIDTH;
+      _e.uniforms.mouse.value.y = 0.5 + (_e.plane.position.y - point.y) / -PLANE_HEIGHT;
+      _e.uniforms.draw.value = 1;
+    }
+  }
+}, false);
+
+window.addEventListener('mousedown', (event) => {
+  mouse.isMousePressed = true;
+  mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+  mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+  if (mouse.isMousePressed && _e.uniforms) {
+    var intersects = raycaster.intersectObject(_e.plane);
+    _e.uniforms.draw.value = -1;
+    if (intersects.length > 0) {
+      var point = intersects[0].point;
+      _e.uniforms.mouse.value.x = 0.5 + (_e.plane.position.x - point.x) / -PLANE_WIDTH;
+      _e.uniforms.mouse.value.y = 0.5 + (_e.plane.position.y - point.y) / -PLANE_HEIGHT;
+      _e.uniforms.draw.value = 1;
+    }
+  }
+  if (_e.uniforms) _e.uniforms.draw.value = 1;
+}, false);
+
+window.addEventListener('mouseup', (event) => {
+  mouse.isMousePressed = false;
+  if (_e.uniforms) _e.uniforms.draw.value = -1;
+}, false);
+
+
+/*
+class Editor extends Client {
+  constructor() {
+    super();
+    this.type = 'editor';
 
 
         this.axisHelper = new THREE.AxisHelper( 5 );
@@ -270,11 +446,11 @@ class Editor extends Client {
     this.setCursorToMousePosition(Math.max(faceA.z, faceB.z, faceC.z, faceD.z) + 0.01);
 
     // compute centroid
-    /*let centroid = new THREE.Vector3(
+    let centroid = new THREE.Vector3(
       (faceA.x + faceB.x + faceC.x) / 3,
       (faceA.y + faceB.y + faceC.y) / 3,
       (faceA.z + faceB.z + faceC.z) / 3,
-    )*/
+    )
 
     this.getCoordinatesDistanceToCenter(square);
 
@@ -356,9 +532,10 @@ class Editor extends Client {
     renderer.render( scene, camera );
   }
 }
-
+*/
 /*** START HERE ***/
 const _e = new Editor();
+controls.enabled = true;
 
 let start, progress, elapsed = 0, oldtime = 0;
 const every_ms = 200;
@@ -371,11 +548,14 @@ function animate(timestamp) {
     oldtime = timestamp - start;
   }
   progress = timestamp - start;
+  let t = timestamp % 360;
+  t = Math.sin(t * Math.PI / 180);
+  if (_e.uniforms) _e.uniforms.control.value = [0, t, -t, 0];
   requestAnimationFrame(animate);
   // update elements
   controls.update();
   // render the sceen on every frames
-  _e.render();
+  _e.render(timestamp);
 }
 // start animation
 animate();

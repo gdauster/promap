@@ -184,6 +184,20 @@ class Layer {
       this.segments.x = 2;
       this.segments.y = 2;
       this.content = new PIXI.mesh.Plane(ressources.img.texture, this.segments.x, this.segments.y);
+
+      //Get shader code as a string
+      var frag = document.getElementById("fragmentShader").innerHTML;
+      var vert = document.getElementById("vertexShader").innerHTML;
+      var uniforms = {}
+      uniforms.offset = {
+        type:"vec4",
+        value: { x:0.0, y:0.0, z:0.0, w:0.0 }
+      }
+      //Create our Pixi filter using our custom shader code
+      var simpleShader = new PIXI.AbstractFilter(vert,'', uniforms);
+      //Apply it to our object
+      this.content.filters = [simpleShader];
+
       this.container.addChild(this.content);
       this.makeControlPoints(this.segments.x);
       this.content.canvasPadding = 1;
