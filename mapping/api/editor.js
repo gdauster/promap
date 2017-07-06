@@ -64,6 +64,12 @@ class Editor extends Client {
       }
     }
 
+    this.tools = document.createElement('canvas');
+    container.appendChild(this.tools);
+    this.tools.width = window.innerWidth;
+    this.tools.height = window.innerHeight;
+    this.tools.style.position = 'absolute';
+
     var loader = new THREE.TextureLoader();
     var scope = this;
     loader.load(
@@ -107,6 +113,27 @@ class Editor extends Client {
         console.log( 'An error happened' );
       }
     );
+  }
+  drawManipulationTool() {
+    const ctx = this.tools.getContext('2d');
+    ctx.clearRect(0, 0, this.tools.width, this.tools.height);
+    const posTL = this.plane.geometry.vertices[0];
+    const posBR = this.plane.geometry.vertices[ this.plane.geometry.vertices.length - 1];
+    const vecTL = this.plane.localToWorld(new THREE.Vector3(posTL.x, posTL.y,posTL.z));
+    const vecBR = this.plane.localToWorld(new THREE.Vector3(posBR.x, posBR.y,posBR.z));
+    vecTL.project(camera);
+    vecBR.project(camera);
+    //console.log(vec);
+    //vec.setFromMatrixPosition(this.plane.matrixWorld);
+    //console.log(vec);
+    if (vecTL.x >= -1 && vecTL.x <= 1 && vecTL.y >= -1 && vecTL.y <= 1) {
+      ctx.fillStyle = '#00ff00';
+      const posx = (vecTL.x + 1) * 0.5;
+      ctx.rect(50, 50, 100, 100);
+      ctx.fill();
+    }
+
+    //console.log(this.plane.position.clone().project(camera));
   }
   addCurrentElementToHistory(element, index) {
     this.history.deform.curves.X.values.push({
@@ -162,6 +189,7 @@ class Editor extends Client {
 
   }
 }
+const _e = new Editor();
 
 
 window.addEventListener('mousemove', (event) => {
@@ -202,6 +230,13 @@ window.addEventListener('mouseup', (event) => {
   mouse.isMousePressed = false;
   if (_e.uniforms) _e.uniforms.draw.value = -1;
 }, false);
+
+window.addEventListener('resize', (event) => {
+  _e.tools.width = window.innerWidth;
+  _e.tools.height = window.innerHeight;
+}, false);
+
+
 
 
 /*
@@ -534,8 +569,8 @@ class Editor extends Client {
 }
 */
 /*** START HERE ***/
-const _e = new Editor();
-controls.enabled = true;
+
+//controls.enabled = false;
 
 let start, progress, elapsed = 0, oldtime = 0;
 const every_ms = 200;
@@ -550,10 +585,12 @@ function animate(timestamp) {
   progress = timestamp - start;
   let t = timestamp % 360;
   t = Math.sin(t * Math.PI / 180);
-  if (_e.uniforms) _e.uniforms.control.value = [0, t, -t, 0];
+  //if (_e.uniforms) _e.uniforms.control.value = [0, t, -t, 0];
   requestAnimationFrame(animate);
   // update elements
-  controls.update();
+  //controls.update();
+  if (_e.plane)
+    _e.drawManipulationTool();
   // render the sceen on every frames
   _e.render(timestamp);
 }

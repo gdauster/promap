@@ -32,13 +32,14 @@ renderer = new THREE.WebGLRenderer( { antialias: true, preserveDrawingBuffer: tr
 renderer.setClearColor( 0xf0f0f0 );
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( width, height );
+renderer.domElement.style.position = 'absolute';
 container.appendChild( renderer.domElement );
 
-controls = new THREE.OrbitControls( camera, renderer.domElement );
+/*controls = new THREE.OrbitControls( camera, renderer.domElement );
 controls.enableDamping = true;
 controls.dampingFactor = 0.25;
 controls.enableZoom = true;
-controls.enableKeys = false;
+controls.enableKeys = false;*/
 
 // DEFAULT EVENTS
 window.addEventListener( 'resize', (resize) => {
