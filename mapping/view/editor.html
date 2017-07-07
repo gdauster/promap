@@ -23,55 +23,6 @@
             browser. Please <a href="http://browsehappy.com/">upgrade your
             browser</a> to improve your experience.</p>
         <![endif]-->
-        <script id="cubeVertexShader" type="x-shader/x-vertex">
-            uniform float time;
-            varying vec2 vUv;
-
-            void main() {
-                vUv = uv;
-                vec3 newPosition = position + normal * vec3(sin(time * 0.2) * 3.0);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
-            }
-        </script>
-
-        <script id="cubeFragmentShader" type="x-shader/x-fragment">
-            uniform float time;
-            varying vec2 vUv;
-            uniform sampler2D texture;
-            const float PI = 3.1415926535;
-
-            void main() {
-                vec2 position = -1.0 + 2.0 * vUv;
-
-                //float red = abs(sin(position.x * position.y + time / 5.0));
-                //float green = abs(sin(position.x * position.y + time / 4.0));
-                //float blue = abs(sin(position.x * position.y + time / 3.0 ));
-                //gl_FragColor = vec4(red, green, blue, 1.0);
-
-                float aperture = 178.0;
-                float apertureHalf = 0.5 * aperture * (PI / 180.0);
-                float maxFactor = sin(apertureHalf);
-
-                vec2 uv;
-                vec2 xy = 2.0 * vUv.xy - 1.0;
-                float d = length(xy);
-
-                if (d < (1.5-maxFactor)) {
-                  d = length(xy * maxFactor);
-                  float z = sqrt(1.0 - d * d);
-                  float r = atan(d, z) / PI;
-                  float phi = atan(xy.y, xy.x);
-
-                  uv.x = r * cos(phi) + 0.5;
-                  uv.y = r * sin(phi) + 0.5;
-                }
-                else {
-                  uv = vUv.xy;
-                }
-
-                gl_FragColor = texture2D(texture, uv);
-            }
-        </script>
 
         <script type="x-shader/x-vertex" id="zoomVertexShader">
           varying vec2 uvs;
@@ -88,7 +39,8 @@
           uniform float resolution;
           uniform float draw;
 
-          uniform float control[4];
+          uniform float control1[4];
+          uniform float control2[4];
           uniform int segments;
 
           uniform sampler2D texture;
@@ -110,10 +62,18 @@
             } else {
               gl_FragColor = texture2D(texture, uvs);
             }*/
-            float c = toCubicBezier(uvs.x, control[0], control[1], control[2], control[3]);
-            float d = (0.5 - distance(uvs, vec2(uvs.x, 0.5))) * 2.0;
-            gl_FragColor = texture2D(texture, vec2(uvs.x, uvs.y + (d * c)));
-            //gl_FragColor = vec4(0.0, d, 0.0, 1.0);
+            float d1 = distance(uvs, vec2(uvs.x, 0.333));// * 2.0;
+            if (d1 > 0.333) {
+              float d2 = distance(uvs, vec2(uvs.x, 0.666));// * 2.0;
+              if (d2 < 0.333) {
+                float c2 = toCubicBezier(uvs.x, control2[0], control2[1], control2[2], control2[3]);
+                gl_FragColor = texture2D(texture, vec2(uvs.x, uvs.y + ((0.333 - d2) * c2)));
+              } else
+                gl_FragColor = texture2D(texture, vec2(uvs.x, uvs.y));
+            } else {
+              float c1 = toCubicBezier(uvs.x, control1[0], control1[1], control1[2], control1[3]);
+              gl_FragColor = texture2D(texture, vec2(uvs.x, uvs.y + ((0.333 - d1) * c1)));
+            }
           }
         </script>
 

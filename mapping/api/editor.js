@@ -59,7 +59,7 @@ class Editor extends Client {
     };
     this.current = {
       deform : {
-        curvesX : [this.createCurve(0.5, 'x')],
+        curvesX : [this.createCurve(0.333, 'x'), this.createCurve(0.666, 'x')],
         curvesY : [this.createCurve(0.5, 'y')]
       }
     }
@@ -69,6 +69,13 @@ class Editor extends Client {
     this.tools.width = window.innerWidth;
     this.tools.height = window.innerHeight;
     this.tools.style.position = 'absolute';
+
+
+    controls = new THREE.OrbitControls( camera, this.tools );
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.25;
+    controls.enableZoom = true;
+    controls.enableKeys = false;
 
     var loader = new THREE.TextureLoader();
     var scope = this;
@@ -84,13 +91,16 @@ class Editor extends Client {
           resolution: { type: "f", value: PLANE_WIDTH / PLANE_HEIGHT },
           draw: { type: "f", value: -1 },
           mouse : { type: "v2", value: new THREE.Vector2 },
-          control : { type: "fv1", value: scope.current.deform.curvesX[0].controlPoints },
-          //control : { type: "v2v", value: [new THREE.Vector2, new THREE.Vector2, new THREE.Vector2, new THREE.Vector2] },
+          control1 : { type: "fv1", value: scope.current.deform.curvesX[0].controlPoints },
+          control2 : { type: "fv1", value: scope.current.deform.curvesX[1].controlPoints },
           segments : { type: "i", value: 10 },
           texture: {type: 't', value: texture}
         };
         //scope.control
         scope.modifyCurrentDeformCurveX(0, 0.0, -0.5, 0.5, 0.0);
+        scope.uniforms.control1.value = scope.current.deform.curvesX[0].controlPoints;
+        scope.modifyCurrentDeformCurveX(1, 0.0, -0.5, 0.5, 0.0);
+        scope.uniforms.control1.value = scope.current.deform.curvesX[1].controlPoints;
         var material = new THREE.ShaderMaterial({
           uniforms: scope.uniforms,
           vertexShader: document.getElementById('zoomVertexShader').innerHTML,
@@ -114,27 +124,45 @@ class Editor extends Client {
       }
     );
   }
-  drawManipulationTool() {
+  drawCornerTool() {
+    // draw square at corners
+    const cornersIndexes = [
+      0, // top left corner
+      PLANE_SEG_WIDTH, // top right corner
+      (PLANE_SEG_WIDTH + 1) * PLANE_SEG_HEIGHT, // bottom left corner
+      this.plane.geometry.vertices.length - 1 // bottom right corner
+    ];
+
+    // get tool context
     const ctx = this.tools.getContext('2d');
     ctx.clearRect(0, 0, this.tools.width, this.tools.height);
-    const posTL = this.plane.geometry.vertices[0];
-    const posBR = this.plane.geometry.vertices[ this.plane.geometry.vertices.length - 1];
-    const vecTL = this.plane.localToWorld(new THREE.Vector3(posTL.x, posTL.y,posTL.z));
-    const vecBR = this.plane.localToWorld(new THREE.Vector3(posBR.x, posBR.y,posBR.z));
-    vecTL.project(camera);
-    vecBR.project(camera);
-    //console.log(vec);
-    //vec.setFromMatrixPosition(this.plane.matrixWorld);
-    //console.log(vec);
-    if (vecTL.x >= -1 && vecTL.x <= 1 && vecTL.y >= -1 && vecTL.y <= 1) {
-      ctx.fillStyle = '#00ff00';
-      const posx = (vecTL.x + 1) * 0.5;
-      ctx.rect(50, 50, 100, 100);
-      ctx.fill();
-    }
 
-    //console.log(this.plane.position.clone().project(camera));
+    for (var i = 0; i < cornersIndexes.length; i++) {
+      // get position on screen
+      const pos = this.plane.geometry.vertices[cornersIndexes[i]];
+      const vec = this.plane.localToWorld(new THREE.Vector3(pos.x, pos.y,pos.z));
+      vec.project(camera);
+
+      // draw
+      if (vec.x >= -1 && vec.x <= 1 && vec.y >= -1 && vec.y <= 1) {
+        ctx.beginPath();
+        ctx.fillStyle = '#00ff00';
+        const posx = (vec.x + 1) * 0.5;
+        const posy = (vec.y + 1) * 0.5;
+        ctx.rect((posx) * this.tools.width - 5, (1 - posy) * this.tools.height - 5, 10, 10);
+        ctx.fill();
+      }
+    }
   }
+  drawManipulationTool() {
+    const indexes = [
+      0, // top left corner
+      (PLANE_SEG_WIDTH + 1) * PLANE_SEG_HEIGHT, // bottom left corner
+      PLANE_SEG_WIDTH, // top right corner
+      this.plane.geometry.vertices.length - 1 // bottom right corner
+    ];
+  }
+
   addCurrentElementToHistory(element, index) {
     this.history.deform.curves.X.values.push({
       position : curve.position,
@@ -162,7 +190,6 @@ class Editor extends Client {
     cur.curve[2].x = x3;
     cur.curve[3].x = x4;
     cur.controlPoints = [cur.curve[0].x, cur.curve[1].x, cur.curve[2].x, cur.curve[3].x];
-    this.uniforms.control.value = cur.controlPoints;
   }
   // work only with cubic bezier curve
   createCurve(position, axis) {
@@ -186,7 +213,33 @@ class Editor extends Client {
       renderer.render( scene, camera );
   }
   sendData() {
+    if (WS_OPEN) {
+      //scene.remove(this.axisHelper);
 
+      // render scene into renderTarget
+      const renderTarget = new THREE.WebGLRenderTarget(renderer.domElement.width,
+                                                       renderer.domElement.height);
+      renderer.render( scene, camera, renderTarget );
+
+      // prepare buffers for sending image data and size
+      var buffer = new Uint8Array(renderer.domElement.width * renderer.domElement.height * 4);
+      var size = new Uint8Array(4);
+      size[0] = renderer.domElement.width;
+      size[1] = renderer.domElement.width >> 8;
+      size[2] = renderer.domElement.height;
+      size[3] = renderer.domElement.height >> 8;
+
+      // read buffer
+      renderer.readRenderTargetPixels(renderTarget, 0, 0,
+                                      renderer.domElement.width,
+                                      renderer.domElement.height, buffer);
+
+      // send data
+      var blob = new Blob([size, buffer], {type: 'application/octet-binary'});
+      ws.send(blob);
+
+      //scene.add(this.axisHelper);
+    }
   }
 }
 const _e = new Editor();
@@ -570,25 +623,29 @@ class Editor extends Client {
 */
 /*** START HERE ***/
 
-//controls.enabled = false;
+controls.enabled = true;
 
 let start, progress, elapsed = 0, oldtime = 0;
-const every_ms = 200;
+const every_ms = (1000/30);
 
 function animate(timestamp) {
   if (!start) start = timestamp;
   elapsed = timestamp - start;
   if (elapsed - oldtime > every_ms) {
-    _e.sendData()
+    //_e.sendData()
     oldtime = timestamp - start;
   }
   progress = timestamp - start;
   let t = timestamp % 360;
   t = Math.sin(t * Math.PI / 180);
   //if (_e.uniforms) _e.uniforms.control.value = [0, t, -t, 0];
+  if (_e.uniforms) {
+  _e.uniforms.control1.value = [0, t, -t, 0];
+  _e.uniforms.control2.value = [0, -t, t, 0];
+  }
   requestAnimationFrame(animate);
   // update elements
-  //controls.update();
+  controls.update();
   if (_e.plane)
     _e.drawManipulationTool();
   // render the sceen on every frames

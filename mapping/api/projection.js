@@ -93,7 +93,7 @@ function animate(timestamp) {
   progress = timestamp - start;
   requestAnimationFrame(animate);
   // render the sceen on every frames
-  _p.render();
+  //_p.render();
 }
 // start animation
 animate();
