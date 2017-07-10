@@ -56,24 +56,13 @@
           }
 
           void main() {
-            //float d = distance(vec2(mouse.x*resolution, mouse.y), vec2(uvs.x*resolution, uvs.y));
-            /*if (draw > 0.0 && d < 0.1) {
-              gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);
-            } else {
-              gl_FragColor = texture2D(texture, uvs);
-            }*/
-            float d1 = distance(uvs, vec2(uvs.x, 0.333));// * 2.0;
-            if (d1 > 0.333) {
-              float d2 = distance(uvs, vec2(uvs.x, 0.666));// * 2.0;
-              if (d2 < 0.333) {
-                float c2 = toCubicBezier(uvs.x, control2[0], control2[1], control2[2], control2[3]);
-                gl_FragColor = texture2D(texture, vec2(uvs.x, uvs.y + ((0.333 - d2) * c2)));
-              } else
-                gl_FragColor = texture2D(texture, vec2(uvs.x, uvs.y));
-            } else {
-              float c1 = toCubicBezier(uvs.x, control1[0], control1[1], control1[2], control1[3]);
-              gl_FragColor = texture2D(texture, vec2(uvs.x, uvs.y + ((0.333 - d1) * c1)));
-            }
+            float d1 = distance(uvs, vec2(uvs.x, 0.333));
+            d1 = d1 > 0.333 ? 0.0 : 0.333 - d1;
+            float d2 = distance(uvs, vec2(uvs.x, 0.666));
+            d2 = d2 > 0.333 ? 0.0 : 0.333 - d2;
+            float c1 = toCubicBezier(uvs.x, control1[0], control1[1], control1[2], control1[3]);
+            float c2 = toCubicBezier(uvs.x, control2[0], control2[1], control2[2], control2[3]);
+            gl_FragColor = texture2D(texture, vec2(uvs.x, uvs.y + ((d1 * c1) + (d2 * c2)) * 0.5 ));
           }
         </script>
 
