@@ -51,7 +51,7 @@ const configFile = fs.readFileSync(__dirname + '/../config.json', 'binary'),
       config = JSON.parse(configFile),
       server = new Server(config.port, config.ipaddr),
       api = {
-        editor: server.compile(['Client', 'variable', '../mapping/api/editor'], true),
+        editor: server.compile(['Client', 'variable', '../mapping/api/editor3d'], true),
         editor2: server.compile(['Client', '../mapping/api/Fragment', '../mapping/api/WorkingSpace', '../mapping/api/editor2d'], true),
         projection: server.compile(['Client', '../mapping/api/projection'], true),
       };
@@ -77,7 +77,7 @@ server.handleURL('/projection', (req, res) => {
 
 server.handleURL('/js/editor.js', (req, res) => {
   console.log('editor');
-  api.editor = server.compile(['Client', 'variable', '../mapping/api/editor'], true);
+  api.editor = server.compile(['Client', 'variable', '../mapping/api/editor3d'], true);
   res.send(api.editor);
 });
 

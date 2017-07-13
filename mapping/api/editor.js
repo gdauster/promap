@@ -35,7 +35,7 @@ class Editor extends Client {
     this.type = 'editor';
     camera.position.x = 0;
     camera.position.y = 0;
-    camera.position.z = 8;
+    camera.position.z = 6;
 
     // control points for cubic bezier
     this.defaultControl = [0, 1/3, 2/3, 1];
@@ -60,7 +60,7 @@ class Editor extends Client {
     this.current = {
       deform : {
         curvesX : [this.createCurve(0.333, 'x'), this.createCurve(0.666, 'x')],
-        curvesY : [this.createCurve(0.5, 'y')]
+        curvesY : [this.createCurve(0.333, 'y'), this.createCurve(0.666, 'y')]
       }
     }
 
@@ -69,6 +69,7 @@ class Editor extends Client {
     this.tools.width = window.innerWidth;
     this.tools.height = window.innerHeight;
     this.tools.style.position = 'absolute';
+    this.drawTools();
 
 
     controls = new THREE.OrbitControls( camera, this.tools );
@@ -93,14 +94,23 @@ class Editor extends Client {
           mouse : { type: "v2", value: new THREE.Vector2 },
           control1 : { type: "fv1", value: scope.current.deform.curvesX[0].controlPoints },
           control2 : { type: "fv1", value: scope.current.deform.curvesX[1].controlPoints },
+          control3 : { type: "fv1", value: scope.current.deform.curvesY[0].controlPoints },
+          control4 : { type: "fv1", value: scope.current.deform.curvesY[1].controlPoints },
           segments : { type: "i", value: 10 },
           texture: {type: 't', value: texture}
         };
+        console.log("truc", texture);
         //scope.control
-        scope.modifyCurrentDeformCurveX(0, 0.0, -0.5, 0.5, 0.0);
+        scope.modifyCurrentDeformCurveX(0, 0.0, 0.0, 0.0, 0.0);
         scope.uniforms.control1.value = scope.current.deform.curvesX[0].controlPoints;
-        scope.modifyCurrentDeformCurveX(1, 0.0, -0.5, 0.5, 0.0);
+        scope.modifyCurrentDeformCurveX(1, 0.0, 0.0, 0.0, 0.0);
         scope.uniforms.control1.value = scope.current.deform.curvesX[1].controlPoints;
+
+        scope.modifyCurrentDeformCurveY(0, 0.0, 0.0, 0.0, 0.0);
+        scope.uniforms.control1.value = scope.current.deform.curvesY[0].controlPoints;
+        scope.modifyCurrentDeformCurveY(1, 0.0, 0.0, 0.0, 0.0);
+        scope.uniforms.control1.value = scope.current.deform.curvesY[1].controlPoints;
+
         var material = new THREE.ShaderMaterial({
           uniforms: scope.uniforms,
           vertexShader: document.getElementById('zoomVertexShader').innerHTML,
@@ -124,6 +134,21 @@ class Editor extends Client {
       }
     );
   }
+  drawTools() {
+    const ctx = this.tools.getContext('2d');
+    ctx.clearRect(0, 0, this.tools.width, this.tools.height);
+    this.drawMenuTool(ctx);
+  }
+  drawMenuTool(ctx) {
+    ctx.beginPath();
+    ctx.fillStyle = '#1c1c1c';
+    ctx.rect(20, 20, 65, 30);
+    ctx.fill();
+
+    ctx.fillStyle='#fafafa';
+    ctx.font="15px Verdana";
+    ctx.fillText("manip", 30, 40);
+  }
   drawCornerTool() {
     // draw square at corners
     const cornersIndexes = [
@@ -135,7 +160,6 @@ class Editor extends Client {
 
     // get tool context
     const ctx = this.tools.getContext('2d');
-    ctx.clearRect(0, 0, this.tools.width, this.tools.height);
 
     for (var i = 0; i < cornersIndexes.length; i++) {
       // get position on screen
@@ -191,6 +215,14 @@ class Editor extends Client {
     cur.curve[3].x = x4;
     cur.controlPoints = [cur.curve[0].x, cur.curve[1].x, cur.curve[2].x, cur.curve[3].x];
   }
+  modifyCurrentDeformCurveY(index, x1, x2, x3, x4) {
+    const cur = this.current.deform.curvesY[index];
+    cur.curve[0].y = x1;
+    cur.curve[1].y = x2;
+    cur.curve[2].y = x3;
+    cur.curve[3].y = x4;
+    cur.controlPoints = [cur.curve[0].y, cur.curve[1].y, cur.curve[2].y, cur.curve[3].y];
+  }
   // work only with cubic bezier curve
   createCurve(position, axis) {
     if (this.defaultControl.length !== 4) return;
@@ -205,7 +237,7 @@ class Editor extends Client {
 
     return {
       position, curve, axis : axis.toLowerCase(),
-      controlPoints : [curve[0].x, curve[1].x, curve[2].x, curve[3].x]
+      controlPoints : [0, 0, 0, 0]
     }
   }
   render(time) {
@@ -626,7 +658,8 @@ class Editor extends Client {
 controls.enabled = true;
 
 let start, progress, elapsed = 0, oldtime = 0;
-const every_ms = (1000/30);
+//const every_ms = (1000/30);
+const every_ms = 300;
 
 function animate(timestamp) {
   if (!start) start = timestamp;
@@ -634,15 +667,18 @@ function animate(timestamp) {
   if (elapsed - oldtime > every_ms) {
     //_e.sendData()
     oldtime = timestamp - start;
+    let t = timestamp % 360;
+    t = Math.sin(t * Math.PI / 180);
+    //if (_e.uniforms) _e.uniforms.control.value = [0, t, -t, 0];
+    if (_e.uniforms) {
+    /*_e.uniforms.control1.value = [0, t, -t, 0];
+    _e.uniforms.control2.value = [0, -t, t, 0];
+    _e.uniforms.control3.value = [0, 0, 0, 0];
+    _e.uniforms.control4.value = [0, 0, 0, 0];*/
+    }
   }
   progress = timestamp - start;
-  let t = timestamp % 360;
-  t = Math.sin(t * Math.PI / 180);
-  //if (_e.uniforms) _e.uniforms.control.value = [0, t, -t, 0];
-  if (_e.uniforms) {
-  _e.uniforms.control1.value = [0, t, -t, 0];
-  _e.uniforms.control2.value = [0, -t, t, 0];
-  }
+
   requestAnimationFrame(animate);
   // update elements
   controls.update();
