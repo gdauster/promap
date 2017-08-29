@@ -79,8 +79,9 @@
             float curve3 = uvs.x + (d3 * c3) - 0.333 + (d3 * c3);
             float curve4 = uvs.x + (d4 * c4) - 0.666 + (d4 * c4);
 
-            vec4 tex = texture2D(texture, vec2(uvs.x + ((d3 * c3) + (d4 * c4)) * 0.5, uvs.y + ((d1 * c1) + (d2 * c2)) * 0.5 ));
-            if ((curve1 > -0.0025 && curve1 < 0.0025)) {// || (curve2 > 0.001 && curve2 < 0.005))
+            //vec4 tex = texture2D(texture, vec2(uvs.x + ((d3 * c3) + (d4 * c4)) * 0.5, uvs.y  + ((d1 * c1) + (d2 * c2)) * 0.5));
+            vec4 tex = texture2D(texture, vec2(uvs.x + ((d3 * c3) + (d4 * c4)) * 0.5, uvs.y  + ((d1 * c1) + (d2 * c2)) * 0.5));
+            /*if ((curve1 > -0.0025 && curve1 < 0.0025)) {// || (curve2 > 0.001 && curve2 < 0.005))
               curve1 = 1.0 - (abs(curve1) * 200.0);
               gl_FragColor = tex * (1.0 - curve1) + vec4(1.0, 1.0, 1.0, 1.0) * curve1;
             } else if ((curve2 > -0.0025 && curve2 < 0.0025)) {// || (curve2 > 0.001 && curve2 < 0.005))
@@ -92,8 +93,9 @@
             } else if ((curve4 > -0.00125 && curve4 < 0.00125)) {// || (curve2 > 0.001 && curve2 < 0.005))
               curve4 = 1.0 - (abs(curve4) * 200.0);
               gl_FragColor = tex * (1.0 - curve4) + vec4(1.0, 1.0, 1.0, 1.0) * curve4;
-            } else
+            } else*/
               gl_FragColor = tex;
+            //gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
           }
         </script>
 

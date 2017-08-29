@@ -20,10 +20,10 @@ const RADIUS_SQUARED = CIRCLE_RADIUS * CIRCLE_RADIUS;
 
 let WS_OPEN = false;
 
-const ws = new WebSocket('ws://127.0.0.1:8090');
+/*const ws = new WebSocket('ws://127.0.0.1:8090');
 ws.addEventListener('open', function (event) {
   WS_OPEN = true;
-});
+});*/
 
 class Editor extends Client {
   constructor() {
@@ -47,6 +47,7 @@ class Editor extends Client {
       abs1 : this.deformX(1/3), abs2 : this.deformX(2/3),
       ord1 : this.deformY(1/3), ord2 : this.deformX(2/3)
     }
+    this.cornersNormalizedPosition = [];
 
     // data send
     this.sender = undefined;
@@ -61,6 +62,7 @@ class Editor extends Client {
 
     this.loadRessource('img/car.jpg');
     camera.position.z = 6;
+    this.createEvents();
   }
   createSender() {
     this.sender = {
@@ -72,6 +74,39 @@ class Editor extends Client {
         renderer.domElement.height, renderer.domElement.height >> 8
       ]
     }
+  }
+  createEvents() {
+    window.addEventListener('mousemove', (event) => {
+      mouse3D.set(
+        ( event.clientX / window.innerWidth ) * 2 - 1,
+        - ( event.clientY / window.innerHeight ) * 2 + 1,
+        0.5 );
+      mouse3D.unproject(camera);
+      const dir = mouse3D.sub( camera.position ).normalize();
+      const distance = - camera.position.z / dir.z;
+      mouse3D = camera.position.clone().add( dir.multiplyScalar( distance ) );
+      mouse.set(
+        ( event.clientX / window.innerWidth ),
+        ( event.clientY / window.innerHeight ));
+
+      if (mouse.isMousePressed) {
+        const deltax = mouse.down.x - mouse.x;
+        const deltay = mouse.down.y - mouse.y;
+        console.log(deltax, deltay);
+        this.moveControlPointsAccordingToMousePosition(deltax, -deltay);
+        mouse.down = new THREE.Vector2(mouse.x, mouse.y);
+      }
+    }, false);
+    window.addEventListener('mousedown', (event) => {
+      mouse.isMousePressed = true;
+      mouse.down = new THREE.Vector2(mouse.x, mouse.y);
+      this.prepareMoveControlPoints();
+    }, false);
+    window.addEventListener('mouseup', (event) => {
+      mouse.isMousePressed = false;
+      mouse.down = new THREE.Vector2();
+    }, false);
+
   }
   /**
    * Any ressources loading, mostly for images.
@@ -105,19 +140,13 @@ class Editor extends Client {
   deformX(position) {
     return {
       position,
-      a: new THREE.Vector2(0, 0),
-      b: new THREE.Vector2(0, 1/3),
-      c: new THREE.Vector2(0, 2/3),
-      d: new THREE.Vector2(0, 0)
+      values: [0, 0, 0, 0]
     }
   }
   deformY(position) {
     return {
       position,
-      a: new THREE.Vector2(0, 0),
-      b: new THREE.Vector2(1/3, 0),
-      c: new THREE.Vector2(2/3, 0),
-      d: new THREE.Vector2(0, 0)
+      values: [0, 0, 0, 0]
     }
   }
   sendUniforms() {
@@ -125,10 +154,10 @@ class Editor extends Client {
     const abs2 = this.deform.abs2;
     const ord1 = this.deform.ord1;
     const ord2 = this.deform.ord2;
-    this.uniforms.control1.value = [abs1.a.x, abs1.b.x, abs1.c.x, abs1.d.x];
-    this.uniforms.control2.value = [abs2.a.x, abs2.b.x, abs2.c.x, abs2.d.x];
-    this.uniforms.control3.value = [ord1.a.x, ord1.b.x, ord1.c.x, ord1.d.x];
-    this.uniforms.control4.value = [ord2.a.x, ord2.b.x, ord2.c.x, ord2.d.x];
+    this.uniforms.control1.value = abs2.values;
+    this.uniforms.control2.value = abs1.values;
+    this.uniforms.control3.value = ord1.values;
+    this.uniforms.control4.value = ord2.values;
   }
   render(time) {
       raycaster.setFromCamera(mouse, camera);
@@ -137,7 +166,145 @@ class Editor extends Client {
   drawTools() {
     const ctx = this.tools.getContext('2d');
     ctx.clearRect(0, 0, this.tools.width, this.tools.height);
-    this.drawCornerTool(ctx);
+    this.cornersNormalizedPosition = this.drawCornerTool(ctx);
+    //this.drawDeformTool(ctx, cornersNormalizedPosition);
+  }
+  drawDeformTool(ctx, cornersNormalizedPosition) {
+    const tl_x = cornersNormalizedPosition[0].x;
+    const tl_y = cornersNormalizedPosition[0].y;
+
+    const abs_length = Math.abs(cornersNormalizedPosition[1].x - tl_x);
+    const ord_length = Math.abs(cornersNormalizedPosition[3].y - tl_y);
+
+    const scope = this;
+    const step = 1/3;
+    function drawControlPointsX(cp) {
+      let posx = 0;
+      for (var i = 0; i < cp.values.length; i++) {
+        const val = cp.values[i];
+        ctx.beginPath();
+        ctx.fillStyle = '#0000ff';
+        ctx.rect(
+          (tl_x + abs_length * posx) * scope.tools.width - 5,
+          (1 - tl_y + ord_length * (cp.position + val)) * scope.tools.height - 5, 10, 10);
+        ctx.fill();
+        posx += step;
+      }
+    }
+    function drawControlPointsY(cp) {
+
+    }
+    drawControlPointsX(this.deform.abs1);
+    //drawControlPointsX(this.deform.abs2);
+    /*drawControlPoints(this.deform.ord1);
+    drawControlPoints(this.deform.ord2);*/
+  }
+  prepareMoveControlPoints() {
+    this.toRun = [];
+    this.toRunHalf = [];
+  }
+  moveControlPointsAccordingToMousePosition(deltax, deltay) {
+    // let's consider a square of 9 parts, numbered from top left to bottom right
+    if (this.cornersNormalizedPosition.length > 0) {
+      if (this.toRun.length === 0) {
+        const tl_x = this.cornersNormalizedPosition[0].x;
+        const tl_y = this.cornersNormalizedPosition[0].y;
+
+        const abs = Math.abs(this.cornersNormalizedPosition[1].x - tl_x);
+        const ord = Math.abs(this.cornersNormalizedPosition[3].y - tl_y);
+
+        const px = (mouse.x - tl_x) / abs;
+        const py = 1 + (mouse.y - tl_y) / ord;
+
+        if (px < 0 || px > 1 || py < 0 || py > 1) return; // out of bound
+        const coordx = Math.floor(px / 0.3333);
+        const coordy = Math.floor(py / 0.3333);
+        const idx = (coordy * 3) + coordx + 1;
+        switch (idx) {
+          case 1:
+            this.toRun = [1];
+            this.toRunHalf = [3, 7, 9];
+            break;
+          case 3:
+            this.toRun = [3];
+            this.toRunHalf = [1, 7, 9];
+            break;
+          case 7:
+            this.toRun = [7];
+            this.toRunHalf = [1, 3, 9];
+            break;
+          case 9:
+            this.toRun = [9];
+            this.toRunHalf = [1, 3, 7];
+            break;
+          case 2:
+            this.toRun = [1, 3];
+            this.toRunHalf = [7, 9];
+            break;
+          case 4:
+            this.toRun = [1, 7];
+            this.toRunHalf = [3, 9];
+            break;
+          case 6:
+            this.toRun = [3, 9];
+            this.toRunHalf = [1, 7];
+            break;
+          case 8:
+            this.toRun = [7, 9];
+            this.toRunHalf = [1, 3];
+            break;
+          default:
+            this.toRun = [1, 3, 7, 9];
+            this.toRunHalf = [];
+        }
+      }
+      for (var i = 0; i < this.toRun.length; i++) {
+        switch (this.toRun[i]) {
+          case 1:
+            this.deform.abs1.values[1] += deltay;
+            this.deform.ord1.values[2] += deltax;
+            break;
+          case 3:
+            this.deform.abs1.values[2] += deltay;
+            this.deform.ord2.values[2] += deltax;
+            break;
+          case 7:
+            this.deform.abs2.values[1] += deltay;
+            this.deform.ord1.values[1] += deltax;
+            break;
+          case 9:
+            this.deform.abs2.values[2] += deltay;
+            this.deform.ord2.values[1] += deltax;
+            break;
+          default:
+            break;
+        }
+      }
+      const deltaxHalf = deltax * 0.5;
+      const deltayHalf = deltay * 0.5;
+      for (var i = 0; i < this.toRunHalf.length; i++) {
+        switch (this.toRunHalf[i]) {
+          case 1:
+            this.deform.abs1.values[1] += deltayHalf;
+            this.deform.ord1.values[2] += deltaxHalf;
+            break;
+          case 3:
+            this.deform.abs1.values[2] += deltayHalf;
+            this.deform.ord2.values[2] += deltaxHalf;
+            break;
+          case 7:
+            this.deform.abs2.values[1] += deltayHalf;
+            this.deform.ord1.values[1] += deltaxHalf;
+            break;
+          case 9:
+            this.deform.abs2.values[2] += deltayHalf;
+            this.deform.ord2.values[1] += deltaxHalf;
+            break;
+          default:
+            break;
+        }
+      }
+    }
   }
   drawCornerTool(ctx) {
     // draw square at corners
@@ -147,6 +314,8 @@ class Editor extends Client {
       (PLANE_SEG_WIDTH + 1) * PLANE_SEG_HEIGHT, // bottom left corner
       this.workingSpace.geometry.vertices.length - 1 // bottom right corner
     ];
+    const cornersPos = [];
+    this.cornersNormalizedPosition = [];
 
     for (var i = 0; i < cornersIndexes.length; i++) {
       // get position on screen
@@ -160,10 +329,13 @@ class Editor extends Client {
         ctx.fillStyle = '#00ff00';
         const posx = (vec.x + 1) * 0.5;
         const posy = (vec.y + 1) * 0.5;
+        this.cornersNormalizedPosition.push({x : posx, y : posy});
+        cornersPos.push({ x: posx, y: posy });
         ctx.rect((posx) * this.tools.width - 5, (1 - posy) * this.tools.height - 5, 10, 10);
         ctx.fill();
       }
     }
+    return cornersPos;
   }
   sendData(sender) {
     if (WS_OPEN) {
@@ -182,15 +354,28 @@ class Editor extends Client {
   }
 }
 const _e = new Editor();
-
 let start, progress, elapsed = 0, oldtime = 0;
 //const every_ms = (1000/30);
-const every_ms = 300;
+const every_ms = 1000;
 
 function animate(timestamp) {
   if (!start) start = timestamp;
   elapsed = timestamp - start;
   if (elapsed - oldtime > every_ms) {
+    let sin_v = Math.sin(timestamp % 360);
+    sin_v = 0.666;
+    /*_e.deform.ord1.values[2] = sin_v;
+    _e.deform.ord1.values[1] = -sin_v;
+    _e.deform.ord2.values[2] = -sin_v;
+    _e.deform.ord2.values[1] = sin_v;
+
+    _e.deform.abs1.values[2] = sin_v;
+    _e.deform.abs1.values[1] = sin_v;
+    _e.deform.abs1.values[0] = 0.1;
+    _e.deform.abs1.values[3] = 0.1;*/
+    _e.sendUniforms();
+    //if (_e.workingSpace)
+      //_e.drawTools();
     //_e.sendData()
     oldtime = timestamp - start;
   }

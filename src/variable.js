@@ -12,6 +12,7 @@ let mouse3D = new THREE.Vector3();
 let mouse = new THREE.Vector2();
 
 mouse.isMousePressed = false;
+mouse.down = new THREE.Vector2();
 
 let raycaster = new THREE.Raycaster();
 
