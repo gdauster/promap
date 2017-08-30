@@ -1,6 +1,6 @@
 let container, stats;
 
-let camera, controls, scene, renderer;
+let camera1, camera2, controls, scene, renderer;
 
 let targetRotation = 0;
 let targetRotationOnMouseDown = 0;
@@ -25,7 +25,8 @@ let windowHalfY = window.innerHeight / 2;
 container = document.createElement('div');
 document.body.appendChild(container);
 
-camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 1000);
+camera1 = new THREE.PerspectiveCamera(70, width / height, 0.1, 1000);
+camera2 = new THREE.PerspectiveCamera(70, width / height, 0.1, 1000);
 
 scene = new THREE.Scene();
 
@@ -45,8 +46,11 @@ window.addEventListener( 'resize', (resize) => {
   windowHalfX = window.innerWidth / 2;
   windowHalfY = window.innerHeight / 2;
 
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
+  camera1.aspect = width / height;
+  camera2.updateProjectionMatrix();
+
+  camera2.aspect = width / height;
+  camera2.updateProjectionMatrix();
 
   renderer.setSize( width, height );
 

@@ -25,6 +25,13 @@ ws.addEventListener('open', function (event) {
   WS_OPEN = true;
 });*/
 
+let currentCamera = camera1;
+let camera1Setup = true;
+let isClickPressed = false;
+  const loader = new THREE.TextureLoader();
+
+let maskToolRadius = 200;
+
 class Editor extends Client {
   constructor() {
     super();
@@ -34,12 +41,19 @@ class Editor extends Client {
       resolution: { type: "f", value: PLANE_WIDTH / PLANE_HEIGHT },
       draw: { type: "f", value: -1 },
       mouse : { type: "v2", value: new THREE.Vector2 },
+      gesture : { type: "v2v", value: new Array(1000) },
+      gcount : { type: "i", value: 0 },
+      gradius : { type: "f", value: maskToolRadius },
       control1 : { type: "fv1", value: [0, 0, 0, 0] },
       control2 : { type: "fv1", value: [0, 0, 0, 0] },
       control3 : { type: "fv1", value: [0, 0, 0, 0] },
       control4 : { type: "fv1", value: [0, 0, 0, 0] },
-      texture: {type: 't', value: undefined}
+      texture: {type: 't', value: undefined},
+      mask: {type: 't', value: undefined}
     };
+    for (var i = 0; i < this.uniforms.gesture.value.length; i++) {
+      this.uniforms.gesture.value[i] = new THREE.Vector2();
+    }
     this.workingSpace = undefined;
 
     // bezier curve manipulation
@@ -59,9 +73,17 @@ class Editor extends Client {
     this.tools.width = window.innerWidth;
     this.tools.height = window.innerHeight;
     this.tools.style.position = 'absolute';
+    this.mask = document.createElement('canvas');
+    controls = new THREE.OrbitControls( camera1, this.tools );
+    //controls.addEventListener( 'change', render ); // remove when using animation loop
+    // enable animation loop when using damping or autorotation
+    //controls.enableDamping = true;
+    //controls.dampingFactor = 0.25;
+    controls.enableZoom = true;
 
     this.loadRessource('img/car.jpg');
-    camera.position.z = 6;
+    camera1.position.z = 6;
+    camera2.position.z = 6;
     this.createEvents();
   }
   createSender() {
@@ -76,35 +98,62 @@ class Editor extends Client {
     }
   }
   createEvents() {
+    const scope = this;
     window.addEventListener('mousemove', (event) => {
       mouse3D.set(
         ( event.clientX / window.innerWidth ) * 2 - 1,
         - ( event.clientY / window.innerHeight ) * 2 + 1,
         0.5 );
-      mouse3D.unproject(camera);
-      const dir = mouse3D.sub( camera.position ).normalize();
-      const distance = - camera.position.z / dir.z;
-      mouse3D = camera.position.clone().add( dir.multiplyScalar( distance ) );
+      mouse3D.unproject(currentCamera);
+      const dir = mouse3D.sub( currentCamera.position ).normalize();
+      const distance = - currentCamera.position.z / dir.z;
+      mouse3D = currentCamera.position.clone().add( dir.multiplyScalar( distance ) );
       mouse.set(
         ( event.clientX / window.innerWidth ),
         ( event.clientY / window.innerHeight ));
 
-      if (mouse.isMousePressed) {
-        const deltax = mouse.down.x - mouse.x;
-        const deltay = mouse.down.y - mouse.y;
-        console.log(deltax, deltay);
-        this.moveControlPointsAccordingToMousePosition(deltax, -deltay);
-        mouse.down = new THREE.Vector2(mouse.x, mouse.y);
+      if (mouse.isMousePressed && !camera1Setup) {
+        if (!isClickPressed) {
+          const deltax = mouse.down.x - mouse.x;
+          const deltay = mouse.down.y - mouse.y;
+          console.log(deltax, deltay);
+          this.moveControlPointsAccordingToMousePosition(deltax, -deltay);
+          mouse.down = new THREE.Vector2(mouse.x, mouse.y);
+        } else {
+          this.drawMaskAccordingToMousePosition();
+        }
       }
+
     }, false);
     window.addEventListener('mousedown', (event) => {
       mouse.isMousePressed = true;
       mouse.down = new THREE.Vector2(mouse.x, mouse.y);
       this.prepareMoveControlPoints();
+      if (!camera1Setup && isClickPressed)
+        this.drawMaskAccordingToMousePosition();
+
     }, false);
     window.addEventListener('mouseup', (event) => {
       mouse.isMousePressed = false;
       mouse.down = new THREE.Vector2();
+      if (isClickPressed) {
+        this.maskNeedsUpdate(true);
+      }
+    }, false);
+    window.addEventListener('keypress', (event) => {
+      if (event.ctrlKey)
+        isClickPressed = !isClickPressed;
+    }, false);
+    window.addEventListener('dblclick', (event) => {
+      if (camera1Setup) {
+        camera1Setup = false;
+        currentCamera = camera2;
+        controls.enabled = false;
+      } else {
+        camera1Setup = true;
+        currentCamera = camera1;
+        controls.enabled = true;
+      }
     }, false);
 
   }
@@ -113,21 +162,37 @@ class Editor extends Client {
    *
    */
   loadRessource(url) {
-    const loader = new THREE.TextureLoader();
     const scope = this;
 
     loader.load(
       url,
       function (ressource) {
         scope.uniforms.texture.value = ressource;
-        scope.workingSpace = new THREE.Mesh(
-          scope.workingSpaceGeometry, new THREE.ShaderMaterial({
-            uniforms: scope.uniforms,
-            vertexShader: document.getElementById('zoomVertexShader').innerHTML,
-            fragmentShader: document.getElementById('zoomFragmentShader').innerHTML
-          }));
-        scene.add(scope.workingSpace);
-        scope.drawTools();
+        scope.uniforms.gradius.value = maskToolRadius / ressource.image.height;
+        scope.mask.width = ressource.image.width;
+        scope.mask.height = ressource.image.height;
+        const ctx = scope.mask.getContext('2d');
+
+        ctx.beginPath();
+        ctx.fillStyle = '#ff0000';
+        ctx.rect(0, 0, scope.mask.width, scope.mask.height);
+        ctx.fill();
+
+         loader.load(
+          scope.mask.toDataURL(),
+          function (rsc) {
+            scope.uniforms.mask.value = rsc;
+            scope.workingSpace = new THREE.Mesh(
+              scope.workingSpaceGeometry, new THREE.ShaderMaterial({
+                uniforms: scope.uniforms,
+                vertexShader: document.getElementById('zoomVertexShader').innerHTML,
+                fragmentShader: document.getElementById('zoomFragmentShader').innerHTML
+              }));
+            scene.add(scope.workingSpace);
+            scope.workingSpace.material.transparent = true;
+            scope.drawTools();
+          }
+        );
       },
       function (xhr) { // Function called when download progresses
         console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
@@ -160,8 +225,8 @@ class Editor extends Client {
     this.uniforms.control4.value = ord2.values;
   }
   render(time) {
-      raycaster.setFromCamera(mouse, camera);
-      renderer.render(scene, camera);
+      raycaster.setFromCamera(mouse, currentCamera);
+      renderer.render(scene, currentCamera);
   }
   drawTools() {
     const ctx = this.tools.getContext('2d');
@@ -203,6 +268,46 @@ class Editor extends Client {
     this.toRun = [];
     this.toRunHalf = [];
   }
+  maskNeedsUpdate(force) {
+    if (force || this.uniforms.gcount.value >= this.uniforms.gesture.value.length) {
+      // flush
+      const scope = this;
+      loader.load(
+        this.mask.toDataURL(),
+        function (rsc) {
+          console.log("mask update");
+          scope.uniforms.mask.value = rsc;
+          scope.uniforms.gcount.value = 0;
+        }
+      );
+    }
+  }
+  drawMaskAccordingToMousePosition() {
+    if (this.cornersNormalizedPosition.length > 0) {
+      const tl_x = this.cornersNormalizedPosition[0].x;
+      const tl_y = this.cornersNormalizedPosition[0].y;
+
+      const abs = Math.abs(this.cornersNormalizedPosition[1].x - tl_x);
+      const ord = Math.abs(this.cornersNormalizedPosition[3].y - tl_y);
+
+      const px = (mouse.x - tl_x) / abs;
+      const py = 1 + (mouse.y - tl_y) / ord;
+
+      if (px < 0 || px > 1 || py < 0 || py > 1) return false;
+
+      const ctx = this.mask.getContext('2d');
+
+      ctx.beginPath();
+      ctx.fillStyle = '#000000';
+      ctx.arc(px * this.mask.width, py * this.mask.height, maskToolRadius, 0, 2 * Math.PI);
+      ctx.fill();
+
+      this.uniforms.gcount.value += 1;
+      this.maskNeedsUpdate();
+      this.uniforms.gesture.value[this.uniforms.gcount.value].set(px, 1 - py);
+      console.log("draw mask", this.uniforms.gcount.value);
+    }
+  }
   moveControlPointsAccordingToMousePosition(deltax, deltay) {
     // let's consider a square of 9 parts, numbered from top left to bottom right
     if (this.cornersNormalizedPosition.length > 0) {
@@ -216,7 +321,7 @@ class Editor extends Client {
         const px = (mouse.x - tl_x) / abs;
         const py = 1 + (mouse.y - tl_y) / ord;
 
-        if (px < 0 || px > 1 || py < 0 || py > 1) return; // out of bound
+        if (px < 0 || px > 1 || py < 0 || py > 1) return false; // out of bound
         const coordx = Math.floor(px / 0.3333);
         const coordy = Math.floor(py / 0.3333);
         const idx = (coordy * 3) + coordx + 1;
@@ -305,6 +410,7 @@ class Editor extends Client {
         }
       }
     }
+    return true
   }
   drawCornerTool(ctx) {
     // draw square at corners
@@ -321,18 +427,18 @@ class Editor extends Client {
       // get position on screen
       const pos = this.workingSpace.geometry.vertices[cornersIndexes[i]];
       const vec = this.workingSpace.localToWorld(new THREE.Vector3(pos.x, pos.y,pos.z));
-      vec.project(camera);
+      vec.project(currentCamera);
 
       // draw
       if (vec.x >= -1 && vec.x <= 1 && vec.y >= -1 && vec.y <= 1) {
-        ctx.beginPath();
-        ctx.fillStyle = '#00ff00';
+        //ctx.beginPath();
+        //ctx.fillStyle = '#00ff00';
         const posx = (vec.x + 1) * 0.5;
         const posy = (vec.y + 1) * 0.5;
         this.cornersNormalizedPosition.push({x : posx, y : posy});
         cornersPos.push({ x: posx, y: posy });
-        ctx.rect((posx) * this.tools.width - 5, (1 - posy) * this.tools.height - 5, 10, 10);
-        ctx.fill();
+        //ctx.rect((posx) * this.tools.width - 5, (1 - posy) * this.tools.height - 5, 10, 10);
+        //ctx.fill();
       }
     }
     return cornersPos;
@@ -340,7 +446,7 @@ class Editor extends Client {
   sendData(sender) {
     if (WS_OPEN) {
       // render scene into renderTarget
-      renderer.render( scene, camera, sender.target );
+      renderer.render( scene, camera1, sender.target );
 
       // read buffer
       renderer.readRenderTargetPixels(sender.target, 0, 0,
