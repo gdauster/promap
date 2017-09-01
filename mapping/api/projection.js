@@ -21,8 +21,9 @@ class Projection extends Client {
       var reader = new FileReader();
       reader.addEventListener("loadend", function() {
          var buffer = new Uint8Array(reader.result);
-        var width = (buffer[0] + (buffer[1] << 8));
-        var height = (buffer[2] + (buffer[3] << 8));
+        var width = (buffer[0] + (buffer[1] << 8) + (buffer[2] << 16) + (buffer[3] << 24));
+        var height = (buffer[4] + (buffer[5] << 8) + (buffer[6] << 16) + (buffer[7] << 24));
+        console.log(width, height);
 
         //const buf8 = new Uint8ClampedArray(buffer, 4);
 
@@ -34,8 +35,8 @@ class Projection extends Client {
         for (let x = 0; x < width; x++) {
           for (let y = 0; y < height; y++) {
             // Get the pixel index
-            const pixelindex = ((y * width + x) * 4) + 4;
-            const pixelindexBuffer = (((height - y - 1) * width + x) * 4) + 4;
+            const pixelindex = ((y * width + x) * 4) + 8;
+            const pixelindexBuffer = (((height - y - 1) * width + x) * 4) + 8;
 
             // Set the pixel data
             imagedata.data[pixelindex] = buffer[pixelindexBuffer];     // Red
@@ -51,6 +52,7 @@ class Projection extends Client {
         //scope.image.src = scope.canvas.toDataURL();
 
       });
+      console.log(blob);
       reader.readAsArrayBuffer(blob);
 /*
       console.log(event);

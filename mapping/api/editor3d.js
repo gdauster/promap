@@ -20,10 +20,10 @@ const RADIUS_SQUARED = CIRCLE_RADIUS * CIRCLE_RADIUS;
 
 let WS_OPEN = false;
 
-/*const ws = new WebSocket('ws://127.0.0.1:8090');
+const ws = new WebSocket('ws://127.0.0.1:8090');
 ws.addEventListener('open', function (event) {
   WS_OPEN = true;
-});*/
+});
 
 let currentCamera = camera1;
 let camera1Setup = true;
@@ -85,17 +85,32 @@ class Editor extends Client {
     camera1.position.z = 6;
     camera2.position.z = 6;
     this.createEvents();
+
+    this.import = container.appendChild(document.createElement('input'));
+    this.import.type = 'file';
+    this.import.accept = 'image/*';
+    //this.import.value = 'IMPORT';
+    this.import.style.position = 'absolute';
+    this.import.onchange = () => {
+      this.loadRessource(URL.createObjectURL(this.import.files[0]));
+    };
   }
   createSender() {
     this.sender = {
       target: new THREE.WebGLRenderTarget(
         renderer.domElement.width, renderer.domElement.height),
       buffer: new Uint8Array(renderer.domElement.width * renderer.domElement.height * 4),
-      size: [
-        renderer.domElement.width, renderer.domElement.width >> 8,
-        renderer.domElement.height, renderer.domElement.height >> 8
-      ]
+      size: new Uint8Array(8),
     }
+    this.sender.size[0] = renderer.domElement.width;
+    this.sender.size[1] = renderer.domElement.width >> 8;
+    this.sender.size[2] = renderer.domElement.width >> 16;
+    this.sender.size[3] = renderer.domElement.width >> 24;
+    this.sender.size[4] = renderer.domElement.height;
+    this.sender.size[5] = renderer.domElement.height >> 8;
+    this.sender.size[6] = renderer.domElement.height >> 16;
+    this.sender.size[7] = renderer.domElement.height >> 24;
+    console.log(this.sender.size);
   }
   createEvents() {
     const scope = this;
@@ -155,6 +170,11 @@ class Editor extends Client {
         controls.enabled = true;
       }
     }, false);
+    window.addEventListener( 'resize', (resize) => {
+      this.tools.width = window.innerWidth;
+      this.tools.height = window.innerHeight;
+      this.createSender();
+    }, false );
 
   }
   /**
@@ -181,6 +201,8 @@ class Editor extends Client {
          loader.load(
           scope.mask.toDataURL(),
           function (rsc) {
+            if (scope.workingSpace !== undefined)
+              scene.remove(scope.workingSpace);
             scope.uniforms.mask.value = rsc;
             scope.workingSpace = new THREE.Mesh(
               scope.workingSpaceGeometry, new THREE.ShaderMaterial({
@@ -444,7 +466,7 @@ class Editor extends Client {
     return cornersPos;
   }
   sendData(sender) {
-    if (WS_OPEN) {
+    if (WS_OPEN && sender !== undefined) {
       // render scene into renderTarget
       renderer.render( scene, camera1, sender.target );
 
@@ -467,22 +489,12 @@ const every_ms = 1000;
 function animate(timestamp) {
   if (!start) start = timestamp;
   elapsed = timestamp - start;
+  controls.update();
   if (elapsed - oldtime > every_ms) {
-    let sin_v = Math.sin(timestamp % 360);
-    sin_v = 0.666;
-    /*_e.deform.ord1.values[2] = sin_v;
-    _e.deform.ord1.values[1] = -sin_v;
-    _e.deform.ord2.values[2] = -sin_v;
-    _e.deform.ord2.values[1] = sin_v;
-
-    _e.deform.abs1.values[2] = sin_v;
-    _e.deform.abs1.values[1] = sin_v;
-    _e.deform.abs1.values[0] = 0.1;
-    _e.deform.abs1.values[3] = 0.1;*/
     _e.sendUniforms();
     //if (_e.workingSpace)
       //_e.drawTools();
-    //_e.sendData()
+    _e.sendData(_e.sender)
     oldtime = timestamp - start;
   }
   progress = timestamp - start;

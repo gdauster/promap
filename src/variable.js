@@ -47,7 +47,7 @@ window.addEventListener( 'resize', (resize) => {
   windowHalfY = window.innerHeight / 2;
 
   camera1.aspect = width / height;
-  camera2.updateProjectionMatrix();
+  camera1.updateProjectionMatrix();
 
   camera2.aspect = width / height;
   camera2.updateProjectionMatrix();
